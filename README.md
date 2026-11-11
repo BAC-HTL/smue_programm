@@ -31,4 +31,6 @@ npm run site     # baut die Doku-Seite nach _site/
 2. Änderungen auf `main` bringen. Die Doku-Seite wird automatisch neu gebaut.
 3. Sobald die neue Version auf `main` ist, baut und testet der Workflow „Release“ das Programm. Er legt das Tag `vX.Y.Z` und ein Release mit `Smue-Programm.html` und den Testergebnissen an. Schlägt ein Test fehl, entsteht kein Release.
 
-Abhängigkeiten von Dritten stehen in [THIRD_PARTY.md](THIRD_PARTY.md).
+## Lizenz
+
+MIT, Copyright (c) 2026 Christoph Bauer. Siehe [LICENSE](LICENSE). Bestandteile von Dritten und ihre Lizenzen stehen in [THIRD_PARTY.md](THIRD_PARTY.md).

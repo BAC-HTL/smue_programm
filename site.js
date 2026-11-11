@@ -42,7 +42,7 @@ function page(file, title, body) {
 <main class="doku">
 ${body}
 </main>
-<footer class="fuss"><div class="band-innen">Version ${pkg.version} · <a href="${REPO}">Quellcode auf GitHub</a> · <a href="${REPO}/releases">Alle Versionen</a></div></footer>
+<footer class="fuss"><div class="band-innen">Version ${pkg.version} · <a href="${REPO}">Quellcode auf GitHub</a> · <a href="${REPO}/blob/main/LICENSE">MIT-Lizenz</a> · <a href="${REPO}/releases">Alle Versionen</a></div></footer>
 </body>
 </html>
 `);
