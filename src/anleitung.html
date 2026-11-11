@@ -1,0 +1,142 @@
+<div class="anleitung" id="anleitung" role="dialog" aria-modal="true" aria-labelledby="anleitung-titel" hidden>
+  <div class="anleitung-kopf">
+    <h2 id="anleitung-titel">Anleitung</h2>
+    <button class="btn klein" type="button" id="anleitung-zu">Schließen</button>
+  </div>
+  <div class="anleitung-text">
+    <p class="hinweis">Version @@VERSION@@ · Neueste Version und Doku: <a href="https://bac-htl.github.io/smue_programm/" target="_blank" rel="noopener">bac-htl.github.io/smue_programm</a></p>
+    <p class="anleitung-lead">Mit dem Smü-Programm erstellst du eine schriftliche Mitarbeitsüberprüfung als einzelne Datei. Schüler öffnen sie im Browser, bekommen sofort ihre Punkte und speichern ein PDF mit der Auswertung. Fahre mit der Maus über ein Fragezeichen oder einen Knopf, um eine Erklärung zu sehen.</p>
+
+    <h3>In fünf Schritten zum Test</h3>
+    <ol>
+      <li><b>Test beschreiben.</b> Trag links Titel, Fach, Klasse und die Zeit in Minuten ein.</li>
+      <li><b>Fragen anlegen.</b> Wähle unten „Frage hinzufügen“. Es gibt beliebig viele Fragen. Jede bekommt eine Fragenart, Punkte und die richtige Lösung.</li>
+      <li><b>Ablauf festlegen.</b> Lege fest, ob gemischt wird, ob Lösungen sichtbar sind und ob Vollbild, Sperre und Protokoll gelten. Notiere dir die Lehrer-PIN.</li>
+      <li><b>Prüfen.</b> Öffne die Vorschau und spiele den Test einmal durch.</li>
+      <li><b>Erzeugen.</b> Klicke auf „Schüler-Datei erzeugen“. Es werden zwei Dateien gespeichert: die Schüler-Datei und die Kontrolldatei. Der Browser fragt eventuell nach, ob er zwei Dateien speichern darf. Erlaube das.</li>
+    </ol>
+
+    <h3>Fragenarten</h3>
+    <div class="tabelle"><table>
+      <thead><tr><th>Art</th><th>So antworten Schüler</th><th>So wird kontrolliert</th></tr></thead>
+      <tbody>
+        <tr><td>Kurzantwort</td><td>Sie tippen frei oder wählen aus einer Liste, wenn du falsche Antworten einträgst.</td><td>Vergleich mit allen richtigen Antworten. Groß- und Kleinschreibung zählt nur, wenn du das einstellst.</td></tr>
+        <tr><td>Zahl</td><td>Sie tippen eine Zahl, auch mit Komma oder als Bruch.</td><td>Vergleich mit deinem Wert und der erlaubten Abweichung.</td></tr>
+        <tr><td>Eine richtige Antwort</td><td>Sie wählen genau eine Antwort.</td><td>Alle Punkte oder keine.</td></tr>
+        <tr><td>Mehrere richtige Antworten</td><td>Sie kreuzen beliebig viele an.</td><td>Teilpunkte: Richtige zählen, falsch Angekreuzte ziehen ab, mindestens 0 Punkte.</td></tr>
+        <tr><td>Richtig oder falsch</td><td>Sie beurteilen eine Aussage.</td><td>Alle Punkte oder keine.</td></tr>
+        <tr><td>Lückentext</td><td>Sie füllen Lücken aus oder wählen aus einer Liste.</td><td>Die Punkte werden gleichmäßig auf die Lücken verteilt.</td></tr>
+        <tr><td>Tabelle ausfüllen</td><td>Sie füllen die gelben Zellen einer Tabelle aus, frei oder mit Auswahl.</td><td>Die Punkte werden gleichmäßig auf die Zellen verteilt.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Teilpunkte werden auf halbe Punkte gerundet. Volle Punkte gibt es nur, wenn alles stimmt.</p>
+
+    <h3>Lückentext schreiben</h3>
+    <div class="tabelle"><table>
+      <thead><tr><th>Du schreibst</th><th>Schüler sehen</th></tr></thead>
+      <tbody>
+        <tr><td><code>Wien liegt an der {Donau}.</code></td><td>ein Eingabefeld</td></tr>
+        <tr><td><code>Ich fahre mit dem {Fahrrad|Rad}.</code></td><td>ein Eingabefeld, beide Antworten sind richtig</td></tr>
+        <tr><td><code>Wien liegt an der {Donau|~Inn|~Mur}.</code></td><td>eine Auswahlliste, nur Donau ist richtig</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Tabelle ausfüllen, zum Beispiel eine Wahrheitstabelle</h3>
+    <ol>
+      <li>Wähle „Tabelle ausfüllen“. Es erscheint eine Wahrheitstabelle mit zwei Variablen.</li>
+      <li>Für mehr Variablen wählst du 1 bis 4 und klickst auf „Erzeugen“. Für andere Tabellen stellst du Spalten (bis 8) und Zeilen (bis 32) selbst ein.</li>
+      <li>Trag die Überschriften ein, zum Beispiel <code>A ∧ B</code>.</li>
+      <li>Gelbe Zellen füllen Schüler aus. Mit dem Knopf unter einer Zelle wechselst du zwischen „vorgegeben“ und „ausfüllen“. So kannst du auch einzelne Eingänge abfragen.</li>
+      <li>Trag in jede gelbe Zelle die Lösung ein. Weitere richtige Lösungen trennst du mit <code>|</code>, zum Beispiel <code>1|W</code>.</li>
+      <li>Unter „Auswahl für Schüler“ steht bei Wahrheitstabellen <code>0, 1</code>. Dann wählen Schüler statt zu tippen. Lass das Feld leer für freie Eingabe.</li>
+    </ol>
+    <p>In der Auswertung sehen Schüler die Tabelle mit grünen und roten Zellen, bei falschen Zellen mit der Lösung, wenn Lösungen gezeigt werden.</p>
+
+    <h3>Bilder einfügen</h3>
+    <p>Jede Frage kann ein Bild haben. Klicke bei der Frage auf „Bild hinzufügen“, ziehe das Bild in die Frage oder setze den Cursor in die Frage und füge es mit Strg+V ein. Möglich sind JPG, PNG, GIF und WebP bis 25 MB.</p>
+    <ul>
+      <li><b>Wo muss das Bild liegen?</b> Nirgends. Das Bild wird in die Schüler-Datei eingebaut. Du kopierst nur diese eine HTML-Datei, die Originaldatei wird nicht mehr gebraucht.</li>
+      <li><b>Größe:</b> Bilder werden auf höchstens 1200 Pixel verkleinert, damit die Datei handlich bleibt. Sehr feine Details prüfst du am besten in der Vorschau.</li>
+      <li><b>Mit Startcode</b> bleiben auch die Bilder verborgen, bis der Code eingegeben ist.</li>
+      <li><b>Viele Bilder:</b> Wird der Browser-Speicher voll, erscheint eine Meldung. Sichere den Test dann mit „Entwurf speichern“. Das erzeugte Ergebnis ist davon nicht betroffen.</li>
+    </ul>
+
+    <h3>Prüfknopf für Schüler</h3>
+    <p>Mit dem Prüfknopf sehen Schüler schon während des Tests, ob eine Antwort stimmt. Schalte ihn unter „Ablauf“ ein und lege die Anzahl fest.</p>
+    <div class="tabelle"><table>
+      <thead><tr><th>Einstellung</th><th>Beispiel</th><th>Bedeutung</th></tr></thead>
+      <tbody>
+        <tr><td>Anzahl gilt für alle Fragen zusammen</td><td>2</td><td>Im ganzen Test darf zweimal geprüft werden, bei beliebigen Fragen.</td></tr>
+        <tr><td>Anzahl gilt für jede Frage</td><td>1</td><td>Jede Frage darf einmal geprüft werden.</td></tr>
+      </tbody>
+    </table></div>
+    <ul>
+      <li>Die Rückmeldung lautet „Richtig“, „Teilweise richtig“ oder „Nicht richtig“. Die Lösung wird nicht gezeigt.</li>
+      <li>Der Knopf ändert die Punkte nicht. Gewertet wird die Antwort bei der Abgabe.</li>
+      <li>Sind die Prüfungen aufgebraucht, lässt sich der Knopf nicht mehr klicken. Neu laden gibt keine Prüfungen zurück.</li>
+      <li>Eine leere Antwort und eine bereits geprüfte, unveränderte Antwort kosten nichts.</li>
+      <li>Jede Prüfung steht mit Uhrzeit im Protokoll, die Gesamtzahl im PDF.</li>
+    </ul>
+
+    <h3>Schüler-Datei verteilen</h3>
+    <p>Die Schüler-Datei lässt sich einfach kopieren. Sie enthält Fragen, Bilder, Timer und PDF-Funktion und läuft ohne Internet.</p>
+    <ul>
+      <li><b>Verteilen:</b> Über USB-Stick, Netzlaufwerk, Moodle oder E-Mail. Alle bekommen dieselbe Datei.</li>
+      <li><b>Nur die HTML-Datei:</b> Die <code>_Kontrolle.json</code> bleibt bei dir.</li>
+      <li><b>Öffnen:</b> Datei speichern und per Doppelklick im Browser öffnen. In der Adresszeile steht dann <code>file:///</code>. Bei Dateien aus E-Mail oder Internet kann Windows oder der Browser einmal nachfragen.</li>
+      <li><b>Nicht verändern:</b> Der Dateiname darf sich ändern. Wird die Datei aber im Editor oder über „Seite speichern unter“ neu gespeichert, gilt sie bei der Prüfung als verändert.</li>
+      <li><b>Nicht neu erzeugen:</b> Jedes Erzeugen ergibt einen neuen Test mit neuer Kontrolldatei. Verteile nur die Datei, zu der du die passende Kontrolldatei hast. Änderst du den Test, verteile die neue Datei an alle.</li>
+      <li><b>Früh verteilen:</b> Vergib einen Startcode und verteile die Datei am besten erst zu Beginn der Stunde.</li>
+      <li><b>Vor dem ersten Einsatz:</b> Mach einen Probedurchlauf auf einem Schulgerät: Test öffnen, abgeben und das PDF unter „Abgaben prüfen“ kontrollieren.</li>
+    </ul>
+
+    <h3>In der Stunde</h3>
+    <ol>
+      <li>Lass alle die Datei im Browser öffnen, am besten in Chrome oder Edge.</li>
+      <li>Sag den Startcode an, falls du einen vergeben hast.</li>
+      <li>Schüler tragen ihren Namen ein und klicken auf „Test starten“. Ab dann läuft die Zeit.</li>
+      <li>Nach der Abgabe erscheinen die Punkte. Das PDF wird automatisch gespeichert, sonst über den Knopf.</li>
+      <li>Sammle die PDFs im Original ein, zum Beispiel über Moodle oder per E-Mail. Ausdrucke und „Als PDF drucken“ sind nicht prüfbar. Wirf gleich einen Blick auf die Ergebnisseite, dort siehst du auch die Zahl der Protokolleinträge.</li>
+      <li>Soll eine weitere Person am selben Computer arbeiten, klicke auf „Für die nächste Person freigeben“ und gib die Lehrer-PIN ein. Im selben Browser läuft immer nur ein Durchgang gleichzeitig. Sonst sieht die nächste Person das Ergebnis der vorherigen.</li>
+    </ol>
+
+    <h3>Das Protokoll lesen</h3>
+    <p>Das Protokoll steht am Ende des PDFs. Es zeigt, was im Testfenster passiert ist. Welche Seiten oder Programme außerhalb geöffnet waren, kann ein Browser nicht sehen. Die Einträge sind Hinweise und kein Beweis.</p>
+    <ul>
+      <li><b>Starker Hinweis:</b> eine Antwort wenige Sekunden nach der Rückkehr ins Fenster, eingefügter Text, viele Zeichen auf einmal.</li>
+      <li><b>Prüfen:</b> mehrere Fensterwechsel, geöffnete Entwicklertools, fremde Elemente auf der Seite.</li>
+      <li><b>Oft harmlos:</b> eine lange Pause, ein einzelner kurzer Fensterwechsel, ein Klick in die Adressleiste, Passwort-Manager als Erweiterung.</li>
+    </ul>
+
+    <h3>Abgaben prüfen</h3>
+    <p>Beim Erzeugen entstehen zwei Dateien: die Schüler-Datei und eine Kontrolldatei mit der Endung <code>_Kontrolle.json</code>. Gib die Kontrolldatei nie weiter und bewahre sie gut auf. Sie enthält die Lösungen und den Schlüssel zum Prüfen. Ohne sie lassen sich die Abgaben nicht prüfen, und sie kann nicht wiederhergestellt werden.</p>
+    <ol>
+      <li>Klicke auf „Abgaben prüfen“.</li>
+      <li>Lade die Kontrolldatei.</li>
+      <li>Wähle die PDFs der Schüler aus, gern alle auf einmal.</li>
+    </ol>
+    <p>Das Programm prüft mit SHA-256, ob das PDF nach der Abgabe verändert wurde und ob die Schüler-Datei noch dieselbe ist. Es rechnet die Punkte aus den Antworten selbst nach und zeigt das Protokoll, auch wenn jemand die Protokollseite entfernt hat.</p>
+    <div class="tabelle"><table>
+      <thead><tr><th>Status</th><th>Bedeutung</th></tr></thead>
+      <tbody>
+        <tr><td>echt</td><td>Keine Veränderung gefunden, die Punkte stimmen.</td></tr>
+        <tr><td>auffällig</td><td>Die Datei ist unverändert, aber die Bearbeitungszeit liegt über der erlaubten Zeit.</td></tr>
+        <tr><td>verändert</td><td>PDF, Prüfdaten, Punkte oder Schüler-Datei wurden verändert.</td></tr>
+        <tr><td>nicht prüfbar</td><td>Das PDF hat keine Prüfdaten, zum Beispiel weil es neu gespeichert oder ausgedruckt wurde. Lass es dir im Original geben.</td></tr>
+        <tr><td>anderer Test</td><td>Das PDF gehört nicht zu dieser Kontrolldatei.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Wichtig: Veränderungen werden erkannt, aber nicht verhindert. Der Schlüssel muss auf dem Gerät der Schüler liegen, weil der Test ohne Internet läuft. Wer sehr gute Kenntnisse hat, könnte ihn auslesen. Lass die Schüler ihr PDF deshalb möglichst gleich nach der Abgabe hochladen.</p>
+
+    <h3>Gut zu wissen</h3>
+    <ul>
+      <li>Der Entwurf wird automatisch in diesem Browser gespeichert. Sichere wichtige Tests zusätzlich mit „Entwurf speichern“.</li>
+      <li>Das Programm gibt es online und als Datei <code>Smue-Programm.html</code>. Die Datei läuft ohne Internet. Die Online-Version braucht eine Verbindung.</li>
+      <li>Neu laden schadet nicht: Antworten und Zeit bleiben erhalten.</li>
+      <li>Die Zahl 1.234 zählt als 1234 und als 1,234. Eine Antwort ist richtig, wenn eine der beiden Lesarten passt.</li>
+      <li>Ein Protokoll betrifft Schüler direkt. Sie werden vor dem Start informiert. Kläre den Einsatz trotzdem mit der Schulleitung und dem Datenschutz ab.</li>
+      <li>Die Kontrolle läuft auf dem Gerät der Schüler. Wer sich sehr gut auskennt, kann Lösungen auslesen oder das PDF verändern. Für Prüfungen mit hohem Einsatz reicht das nicht.</li>
+      <li>Das Vollbild und das Protokoll sind für Computer gedacht. Auf Handys funktioniert nicht alles.</li>
+    </ul>
+  </div>
+</div>

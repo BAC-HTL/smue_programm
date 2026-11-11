@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Version prüfen
+        run: |
+          v=$(node -p "require('./package.json').version")
+          test "v$v" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME passt nicht zu package.json ($v)"; exit 1; }
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils qpdf
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm test
+      - name: Release-Notizen aus CHANGELOG.md
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          awk -v v="$v" '/^## /{p = index($0, "## " v " ") == 1 || $0 == "## " v; next} p' CHANGELOG.md > notizen.md
+          node -e "const d=require('./tests/ergebnisse.json');require('fs').appendFileSync('notizen.md','\n**Tests:** '+(d.gesamt-d.fehler)+' von '+d.gesamt+' bestanden.\n')"
+          cp tests/ergebnisse.json Testergebnisse.json
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/Smue-Programm.html Testergebnisse.json --title "Smü-Programm $GITHUB_REF_NAME" --notes-file notizen.md

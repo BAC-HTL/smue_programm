@@ -1,0 +1,34 @@
+body { background-size: 22px 22px; }
+.band-innen { max-width: 920px; margin: 0 auto; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.kopfband { background: var(--blatt); border-bottom: 2px solid var(--rot); }
+.marke { font: 700 30px/1 var(--hand); color: var(--rot); text-decoration: none; margin-right: auto; }
+nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+nav a { color: var(--tinte); font-weight: 700; text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; }
+nav a:hover, nav a[aria-current="page"] { border-bottom-color: var(--tinte); }
+.doku { max-width: 920px; margin: 24px auto 48px; background: var(--blatt); border: 1px solid var(--linie); box-shadow: 0 2px 0 var(--linie); padding-block: 28px 40px; padding-left: max(20px, min(56px, 5vw)); padding-right: max(20px, min(56px, 5vw)); }
+.doku p, .doku li { max-width: 72ch; }
+@media (max-width: 960px) { .doku { margin: 0; border-inline: 0; } }
+.doku > * + * { margin-top: 14px; }
+.doku h1 { font-size: 34px; color: var(--tinte); }
+.doku h2 { margin-top: 36px; font-size: 24px; color: var(--tinte); }
+.doku h3 { margin-top: 28px; font-size: 20px; color: var(--tinte); }
+.doku ul, .doku ol { padding-left: 22px; display: grid; gap: 6px; margin-bottom: 0; }
+.doku a { color: var(--tinte); }
+.doku code { font-family: var(--ziffer); font-size: 0.85em; background: var(--feld); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
+.lead { font-size: 19px; }
+.eyebrow { font-size: 14px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--rot); }
+.held { display: grid; gap: 14px; padding-bottom: 8px; }
+.knoepfe { display: flex; flex-wrap: wrap; gap: 10px; }
+a.btn { text-decoration: none; }
+a.btn.voll { color: var(--tinte-text); }
+.tabelle { overflow-x: auto; }
+.tabelle table { width: 100%; border-collapse: collapse; font-size: 16px; }
+.tabelle th, .tabelle td { padding: 8px 10px; border: 1px solid var(--linie); text-align: left; vertical-align: top; }
+.tabelle th { background: var(--feld); }
+details { border: 1px solid var(--linie); border-radius: 4px; padding: 8px 12px; }
+details + details { margin-top: 8px; }
+summary { cursor: pointer; font-weight: 700; color: var(--tinte); }
+details .tabelle { margin-top: 10px; }
+.gruen { color: var(--gruen); } .rot { color: var(--rot); }
+.fuss { color: var(--leise); font-size: 15px; }
+.fuss a { color: var(--leise); }

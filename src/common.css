@@ -1,0 +1,95 @@
+/* Konzept: Das Schulheft. Karopapier als Grund, Blatt mit roter Randlinie, Punkte stehen am Rand,
+   die Korrektur kommt mit Rotstift. Im Dunkelmodus wird das Heft zur Tafel. */
+:root {
+  --grund: #eef2f8;
+  --karo: #dbe4f1;
+  --blatt: #ffffff;
+  --tinte: #1f35a8;
+  --tinte-text: #ffffff;
+  --text: #1b2236;
+  --leise: #566079;
+  --linie: #c8d3e4;
+  --rot: #cf2027;
+  --gruen: #12703a;
+  --gruen-fond: #e4f4ea;
+  --rot-fond: #fdeaea;
+  --gelb: #94560a;
+  --gelb-fond: #fdf2dc;
+  --feld: #f7f9fc;
+  --schrift: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
+  --zahl: "Barlow Condensed", "Arial Narrow", var(--schrift);
+  --ziffer: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --grund: #14211d; --karo: #1c2d28; --blatt: #1b2a26; --tinte: #a9c4ff; --tinte-text: #10201c;
+    --text: #e9efe9; --leise: #a3b3ac; --linie: #38504a; --rot: #ff8f86; --gruen: #7fdca2;
+    --gruen-fond: #1d3d2d; --rot-fond: #452423; --gelb: #f3c776; --gelb-fond: #40321a; --feld: #16231f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --grund: #14211d; --karo: #1c2d28; --blatt: #1b2a26; --tinte: #a9c4ff; --tinte-text: #10201c;
+  --text: #e9efe9; --leise: #a3b3ac; --linie: #38504a; --rot: #ff8f86; --gruen: #7fdca2;
+  --gruen-fond: #1d3d2d; --rot-fond: #452423; --gelb: #f3c776; --gelb-fond: #40321a; --feld: #16231f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; color: var(--text); font: 400 17px/1.5 var(--schrift);
+  background-color: var(--grund);
+  background-image: linear-gradient(var(--karo) 1px, transparent 1px), linear-gradient(90deg, var(--karo) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+input[type="text"], input[type="password"], input[type="number"], select, textarea {
+  width: 100%; min-height: 44px; padding: 9px 12px; background: var(--feld);
+  border: 1.5px solid var(--linie); border-radius: 4px;
+}
+textarea { resize: vertical; line-height: 1.45; }
+input:hover, select:hover, textarea:hover { border-color: var(--leise); }
+:focus-visible { outline: 3px solid var(--tinte); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; border-color: var(--tinte); }
+input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-color: var(--tinte); flex: none; margin: 0; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px;
+  background: var(--blatt); color: var(--tinte); border: 1.5px solid var(--tinte); border-radius: 4px;
+  font-weight: 700; cursor: pointer;
+}
+.btn:hover { background: var(--feld); }
+.btn.voll { background: var(--tinte); color: var(--tinte-text); }
+.btn.voll:hover { filter: brightness(1.12); }
+.btn.rot { color: var(--rot); border-color: var(--rot); }
+.btn.klein { min-height: 36px; padding: 4px 10px; font-size: 15px; }
+.btn.still { border-color: transparent; background: transparent; }
+.btn.still:hover { background: var(--feld); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.feld { display: grid; gap: 4px; min-width: 0; }
+.feld > label, .feld > .etikett { font-size: 15px; font-weight: 700; }
+.hinweis { font-size: 15px; color: var(--leise); }
+.fehler { color: var(--rot); font-weight: 700; font-size: 15px; }
+.zeile { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.ziffern { font-family: var(--ziffer); font-variant-numeric: tabular-nums; }
+
+/* Das Blatt: linke Spalte ist der Heftrand */
+.blatt { background: var(--blatt); border: 1px solid var(--linie); box-shadow: 0 2px 0 var(--linie); }
+.posten { display: grid; grid-template-columns: 64px minmax(0, 1fr); border-bottom: 1px solid var(--linie); }
+.posten:last-child { border-bottom: 0; }
+.rand { padding: 16px 8px 16px 0; text-align: right; border-right: 2px solid var(--rot); display: grid; align-content: start; gap: 2px; }
+.rand .nr { font-weight: 700; font-size: 20px; color: var(--tinte); line-height: 1.2; }
+.rand .pkt { font-size: 13px; color: var(--leise); line-height: 1.25; }
+.inhalt { padding: 16px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.frage { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 18px; }
+@media (max-width: 480px) {
+  .posten { grid-template-columns: 46px minmax(0, 1fr); }
+  .rand { padding-right: 6px; }
+  .inhalt { padding: 14px 12px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

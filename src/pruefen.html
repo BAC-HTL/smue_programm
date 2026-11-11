@@ -1,0 +1,19 @@
+<div class="anleitung" id="pruefen" role="dialog" aria-modal="true" aria-labelledby="pruefen-titel" hidden>
+  <div class="anleitung-kopf">
+    <h2 id="pruefen-titel">Abgaben prüfen</h2>
+    <button class="btn klein" type="button" id="pruefen-zu">Schließen</button>
+  </div>
+  <div class="anleitung-text" id="pruef-text">
+    <p class="anleitung-lead">Lade die Kontrolldatei und danach die PDFs der Schüler. Du siehst sofort, ob eine Abgabe verändert wurde.</p>
+    <div class="pruef-schritt">
+      <div><button class="btn klein" type="button" id="knopf-kontrolle">1. Kontrolldatei laden</button></div>
+      <p class="hinweis" id="pruef-kontrolle"></p>
+    </div>
+    <div class="pruef-schritt">
+      <div><button class="btn klein voll" type="button" id="knopf-pdf" disabled>2. PDFs auswählen</button></div>
+    </div>
+    <input type="file" id="datei-kontrolle" accept=".json,application/json" hidden>
+    <input type="file" id="datei-abgaben" accept=".pdf,application/pdf" multiple hidden>
+    <div id="pruef-liste"></div>
+  </div>
+</div>

@@ -1,0 +1,36 @@
+<section class="held">
+  <p class="eyebrow">Für Lehrkräfte · kostenlos · ohne Anmeldung</p>
+  <h1>Schriftliche Mitarbeitsüberprüfungen im Browser</h1>
+  <p class="lead">Du erstellst die Fragen im Lehrer-Programm und bekommst eine einzige HTML-Datei für die Schüler. Sie läuft ohne Internet, hat einen Timer, kontrolliert automatisch und speichert für jeden Schüler ein PDF mit der Auswertung.</p>
+  <div class="knoepfe">
+    <a class="btn voll" href="app/Smue-Programm.html">Lehrer-Programm online öffnen</a>
+    <a class="btn" href="@@REPO@@/releases/latest">Neueste Version herunterladen</a>
+  </div>
+  <p class="hinweis">Version @@VERSION@@. Für den Einsatz ohne Internet lädst du <code>Smue-Programm.html</code> aus der neuesten Version herunter und öffnest sie per Doppelklick.</p>
+</section>
+
+<h2>Was das Programm kann</h2>
+<div class="tabelle"><table>
+  <thead><tr><th>Bereich</th><th>Funktionen</th></tr></thead>
+  <tbody>
+    <tr><td>Fragen</td><td>Kurzantwort, Zahl, eine oder mehrere richtige Antworten, Richtig/Falsch, Lückentext, Tabelle ausfüllen (zum Beispiel Wahrheitstabellen). Bilder in jeder Frage.</td></tr>
+    <tr><td>Ablauf</td><td>Timer mit automatischer Abgabe, Startcode, Mischen, Prüfknopf mit begrenzter Anzahl, Vollbild, Sperre für Kopieren und Einfügen.</td></tr>
+    <tr><td>Auswertung</td><td>Punkte und Note sofort nach der Abgabe, PDF mit allen Antworten und Lösungen, Protokoll auffälliger Ereignisse.</td></tr>
+    <tr><td>Sicherung</td><td>Abgegebene PDFs lassen sich mit der Kontrolldatei prüfen. Veränderungen am PDF oder an der Schüler-Datei werden mit SHA-256 erkannt, die Punkte nachgerechnet.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>In drei Schritten</h2>
+<ol class="schritte">
+  <li><b>Test erstellen:</b> Lehrer-Programm öffnen, Fragen anlegen, „Schüler-Datei erzeugen“. Bewahre die mitgespeicherte <code>_Kontrolle.json</code> gut auf.</li>
+  <li><b>Verteilen:</b> Die Schüler-Datei per Moodle, Netzlaufwerk oder USB-Stick weitergeben. Alle bekommen dieselbe Datei.</li>
+  <li><b>Auswerten:</b> PDFs einsammeln und unter „Abgaben prüfen“ kontrollieren.</li>
+</ol>
+<p>Alle Einzelheiten stehen in der <a href="anleitung.html">Anleitung</a>. Sie ist identisch mit der Anleitung im Programm.</p>
+
+<h2>Grenzen</h2>
+<ul>
+  <li>Die Kontrolle läuft auf dem Gerät der Schüler. Sehr versierte Schüler können Lösungen oder den Prüfschlüssel auslesen. Für Prüfungen mit hohem Einsatz reicht das nicht.</li>
+  <li>Ein Browser sieht nicht, was außerhalb des Testfensters geöffnet ist. Das Protokoll liefert Hinweise, keine Beweise.</li>
+  <li>Automatisch getestet wird in Chromium. Mach vor dem ersten Einsatz einen Probedurchlauf auf euren Schulgeräten.</li>
+</ul>
