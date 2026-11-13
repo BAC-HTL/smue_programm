@@ -52,6 +52,7 @@ const body = `
   <button class="btn klein still" type="button" id="knopf-neu">Neu</button>
   <button class="btn klein still" type="button" id="knopf-laden">Entwurf laden</button>
   <button class="btn klein still" type="button" id="knopf-speichern">Entwurf speichern</button>
+  <button class="btn klein" type="button" id="knopf-export">PDF exportieren</button>
   <button class="btn klein" type="button" id="knopf-vorschau">Vorschau</button>
   <button class="btn klein voll" type="button" id="knopf-erzeugen">Schüler-Datei erzeugen</button>
   <input type="file" id="datei-laden" accept=".json,application/json" hidden>
@@ -87,6 +88,9 @@ ${R('src/master.css')}
 ${body}
 <script type="text/plain" id="smu-vorlage">${Buffer.from(student, 'utf8').toString('base64')}</script>
 <script>${safe(R('src/core.js'))}</script>
+<script>${safe(R(V + 'jspdf/dist/jspdf.umd.min.js'))}</script>
+<script>window.__SMU_FONTS={r:"${B64('fonts/pdf.ttf')}",b:"${B64('fonts/pdf-Bold.ttf')}"};</script>
+<script>${safe(R('src/export.js'))}</script>
 <script>${safe(R('src/hilfe.js'))}</script>
 <script>${safe(R('src/master.js'))}</script>
 `;
