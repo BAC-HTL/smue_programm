@@ -1,5 +1,9 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- **Tastatursperre im Vollbild:** In Chrome und Edge beendet ein kurzer Druck auf Esc das Vollbild nicht mehr, man muss Esc gedrückt halten. Windows-Taste, Alt+Tab, Win+Strg+Pfeil (Desktop wechseln), Win+Tab, Win+D, Alt+F4 und Strg+W/T/N gehen an die Seite statt ans System und werden protokolliert. Schließen und Wiederöffnen steht mit der Dauer im Protokoll.
+
 ## 1.0.0 – 11. November 2026
 
 Erste Version im Repository. Sie enthält alle bisher entwickelten Funktionen.

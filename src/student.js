@@ -99,10 +99,20 @@
     ignoreBlurUntil = Date.now() + 1200;
     try {
       var r = f.call(d);
-      return r && r.then ? r.then(function () { return true; }, function () { return false; }) : after(250).then(isFs);
+      return (r && r.then ? r.then(function () { return true; }, function () { return false; }) : after(250).then(isFs))
+        .then(function (ok) { if (ok) lockKeys(); return ok; });
     } catch (e) { return Promise.resolve(false); }
   }
+  /* Tastatursperre (Chrome, Edge): Esc beendet das Vollbild erst nach langem Drücken,
+     Windows-Taste, Alt+Tab und Strg+W gehen an die Seite statt ans System. */
+  function lockKeys() {
+    try { if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock().catch(function () {}); } catch (e) { /* nicht verfügbar */ }
+  }
+  function unlockKeys() {
+    try { if (navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock(); } catch (e) { /* nicht verfügbar */ }
+  }
   function leaveFs() {
+    unlockKeys();
     try {
       if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen();
       else if (document.webkitExitFullscreen && document.webkitFullscreenElement) document.webkitExitFullscreen();
@@ -736,7 +746,10 @@
   }
   /* Neu laden ist kein Fensterwechsel */
   var leaving = false;
-  window.addEventListener('beforeunload', function () { leaving = true; });
+  window.addEventListener('beforeunload', function () {
+    leaving = true;
+    if (S && S.phase === 'test') { S.closedAt = Date.now(); save(); }   // fuer das Protokoll beim Wiederoeffnen
+  });
   window.addEventListener('blur', noteLeave);
   window.addEventListener('focus', noteBack);
   document.addEventListener('visibilitychange', function () { if (document.hidden) noteLeave(); else if (document.hasFocus()) noteBack(); });
@@ -783,24 +796,43 @@
     else if (jump >= 12) logE('burst', jump + ' Zeichen auf einmal eingetragen: „' + cut(el.value) + '“', qnr(el));
   }, true);
 
+  var winAllein = false;   // Windows-Taste ohne weitere Taste gedrückt
   document.addEventListener('keydown', function (e) {
     if (!S || S.phase !== 'test') return;
     var k = String(e.key || '').toLowerCase(), mod = e.ctrlKey || e.metaKey, name = '';
+    if (k !== 'meta' && k !== 'os') winAllein = false;
     var P = e.metaKey ? 'Cmd' : 'Strg';
     if (k === 'f12') name = 'F12 (Entwicklertools)';
     else if (mod && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) name = P + '+Umschalt+' + k.toUpperCase() + ' (Entwicklertools)';
     else if (mod && e.altKey && (k === 'i' || k === 'j' || k === 'c')) name = P + '+Alt+' + k.toUpperCase() + ' (Entwicklertools)';
     else if (e.metaKey && e.shiftKey && k === 's') name = 'Win+Umschalt+S (Bildschirmfoto)';
+    else if (k === 'escape') { if (!e.repeat && isFs()) name = 'Esc (Vollbild verlassen)'; }
+    else if (k === 'meta' || k === 'os') { winAllein = true; e.preventDefault(); return; }   // erst beim Loslassen protokollieren
+    else if (e.metaKey && e.ctrlKey && (k === 'arrowleft' || k === 'arrowright' || k === 'd')) name = 'Win+Strg+' + (k === 'd' ? 'D (neuer Desktop)' : (k === 'arrowleft' ? 'Links' : 'Rechts') + ' (Desktop wechseln)');
+    else if (e.metaKey && k === 'tab') name = 'Win+Tab (Taskansicht)';
+    else if (e.metaKey && (k === 'd' || k === 'm')) name = 'Win+' + k.toUpperCase() + ' (Desktop anzeigen)';
+    else if (e.altKey && k === 'tab') name = 'Alt+Tab (Fenster wechseln)';
+    else if (e.altKey && k === 'f4') name = 'Alt+F4 (Fenster schließen)';
+    else if (e.ctrlKey && k === 'tab') name = 'Strg+Tab (Tab wechseln)';
+    else if (mod && k === 'w') name = P + '+W (Tab schließen)';
+    else if (mod && k === 't') name = P + '+T (neuer Tab)';
+    else if (mod && k === 'n') name = P + '+N (neues Fenster)';
     else if (mod && k === 'u') name = P + '+U (Quelltext)';
     else if (mod && k === 'f') name = P + '+F (Suche)';
     else if (mod && k === 'p') name = P + '+P (Drucken)';
     else if (mod && k === 's') name = P + '+S (Speichern)';
     if (!name) return;
-    if (locked()) e.preventDefault();
-    logE('key', name, qnr(e.target));
+    var weg = /Esc|Windows-Taste|Desktop|Taskansicht|Alt\+|Tab|Fenster/.test(name);   // Tasten, die aus dem Test führen
+    if (locked() || (weg && M.fullscreen && isFs())) e.preventDefault();
+    logE(weg ? 'screen' : 'key', name, qnr(e.target));
   }, true);
   document.addEventListener('keyup', function (e) {
     if (e.key === 'PrintScreen') logE('key', 'Druck-Taste (Bildschirmfoto)');
+    if ((e.key === 'Meta' || e.key === 'OS') && winAllein && S && S.phase === 'test') {
+      winAllein = false;
+      if (M.fullscreen && isFs()) e.preventDefault();
+      logE('screen', 'Windows-Taste (Startmenü)');
+    }
   }, true);
 
   /* ---------- Start: laufenden oder fertigen Test wiederherstellen ---------- */
@@ -812,7 +844,10 @@
         S = saved; Q = data.questions; SECRET = data.secret || ''; S.log = S.log || []; S.checks = S.checks || {}; S.checked = S.checked || {};
         if (S.phase === 'test') {
           S.log.forEach(function (e) { if (e.type === 'switch' && !e.back) e.back = Date.now(); });
-          logE('reload', 'Seite neu geladen');
+          var weg = S.closedAt ? Date.now() - S.closedAt : 0;
+          delete S.closedAt;
+          logE('reload', weg > 3000 ? 'Fenster geschlossen oder Seite verlassen, nach ' + mmss(weg / 1000) + ' min wieder geöffnet'
+            : 'Seite neu geladen');
         }
         if (S.phase === 'done') viewDone();
         else if (Date.now() >= S.endsAt) { submit(true); }
