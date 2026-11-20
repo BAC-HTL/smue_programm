@@ -1,5 +1,9 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- **Tastatursperre im Vollbild:** In Chrome und Edge beendet ein kurzer Druck auf Esc das Vollbild nicht mehr, man muss Esc gedrückt halten. Windows-Taste, Alt+Tab, Win+Strg+Pfeil (Desktop wechseln), Win+Tab, Win+D, Alt+F4 und Strg+W/T/N gehen an die Seite statt ans System und werden protokolliert. Schließen und Wiederöffnen steht mit der Dauer im Protokoll.
+
 ## 1.1.0 – 13. November 2026
 
 - **PDF-Export:** Im Lehrer-Programm lässt sich der Test als PDF speichern, als Angabe zum Ausdrucken oder als Lösungsblatt. Die Angabe enthält alle Fragen mit Bildern, Antwortlinien, Kästchen und leeren Tabellen sowie Felder für Name, Klasse, Datum, Punkte und Note. Das Lösungsblatt zeigt die richtigen Antworten in Grün und den Notenschlüssel mit Punktegrenzen.
