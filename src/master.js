@@ -45,7 +45,7 @@
 
   function emptyDraft() {
     return { sample: false, title: '', subject: '', cls: '', teacher: '', minutes: 20, startCode: '', pin: pin(),
-      shuffleQ: false, shuffleO: true, showSolutions: true, logBlur: true, fullscreen: true, lock: true, pruefAn: false, pruefArt: 'gesamt', pruefZahl: 2,
+      shuffleQ: false, shuffleO: true, showSolutions: true, logBlur: true, fullscreen: true, lock: true, pruefAn: false, pruefArt: 'gesamt', pruefZahl: 2, reveal: false, selfRestart: false, single: false, scoreOnly: false, browserCheck: true, pdfMode: 'voll',
       grading: { on: false, thresholds: [88, 75, 63, 50] }, questions: [] };
   }
   function sampleDraft() {
@@ -87,6 +87,7 @@
       if (k === 'questions' || k === 'grading' || raw[k] === undefined || raw[k] === null) return;
       d[k] = typeof d[k] === 'string' ? String(raw[k]) : typeof d[k] === 'number' ? (Number(raw[k]) || 0) : !!raw[k];
     });
+    if (['voll', 'ohne', 'quittung'].indexOf(d.pdfMode) < 0) d.pdfMode = 'voll';
     d.questions = raw.questions;
     var g = raw.grading;
     if (g && Array.isArray(g.thresholds) && g.thresholds.length === 4) d.grading = { on: !!g.on, thresholds: g.thresholds.map(Number) };
@@ -96,6 +97,29 @@
   var D = null, problems = {};
   try { D = cleanDraft(JSON.parse(localStorage.getItem(STORE))); } catch (e) { D = null; }
   if (!D) D = sampleDraft();
+
+  /* Unterlagen (PDFs für Schüler): zu groß für localStorage, daher in IndexedDB; im Entwurf als "docs" */
+  var DOCS = [];
+  function docsDb(mode, fn) {
+    return new Promise(function (ok, no) {
+      if (!window.indexedDB) { no(new Error('idb')); return; }
+      var r = indexedDB.open('smue-unterlagen', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('h'); };
+      r.onerror = function () { no(r.error); };
+      r.onsuccess = function () {
+        var tx = r.result.transaction('h', mode), q = fn(tx.objectStore('h'));
+        tx.oncomplete = function () { ok(q && q.result); r.result.close(); };
+        tx.onerror = function () { no(tx.error); };
+      };
+    });
+  }
+  function cleanDocs(a) {
+    return Array.isArray(a) ? a.filter(function (d) { return d && typeof d.name === 'string' && typeof d.data === 'string' && /^JVBER/.test(d.data); })
+      .map(function (d) { return { name: d.name.slice(0, 60), data: d.data }; }) : [];
+  }
+  function saveDocs() { docsDb('readwrite', function (s) { s.put(DOCS, 'docs'); }).catch(function () { /* nur im Speicher */ }); }
+  function docBytes(d) { return Math.floor(d.data.length * 3 / 4); }
+  function mb(n) { return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : C.fmt(Math.round(n / 104857.6) / 10) + ' MB'; }
 
   var storeFull = false;
   function persist() {
@@ -158,19 +182,41 @@
         field('minuten', 'Zeit in Minuten', h('input', { type: 'number', id: 'minuten', min: 1, max: 600, value: D.minutes, oninput: function (e) { D.minutes = Number(e.target.value); persist(); } }))]),
       h('section', { class: 'blatt tafel' }, [h('h2', { text: 'Ablauf' }),
         bindCheck('misch-fragen', D, 'shuffleQ', 'Fragen mischen'),
+        bindCheck('einzeln', D, 'single', 'Eine Frage pro Seite, kein Zurück'),
         bindCheck('misch-optionen', D, 'shuffleO', 'Antwortmöglichkeiten mischen'),
         bindCheck('loesungen', D, 'showSolutions', 'Richtige Lösungen nach der Abgabe zeigen'),
+        bindCheck('nurpunkte', D, 'scoreOnly', 'Nach der Abgabe nur die Punkte zeigen'),
+        h('div', { class: 'feld' }, [h('span', { class: 'etikett', id: 'pdf-stufe-t', text: 'PDF für Schüler' }),
+          h('div', { class: 'schalter', role: 'radiogroup', 'aria-labelledby': 'pdf-stufe-t', id: 'pdf-stufe' }, [
+            ['voll', 'Vollständig: Antworten mit ✓/✗ und Punkten je Frage', 'pdf-voll'],
+            ['ohne', 'Ohne Bewertung: nur die eigenen Antworten', 'pdf-ohne'],
+            ['quittung', 'Nur Abgabebestätigung: Gesamtpunkte, keine Antworten', 'pdf-quittung']].map(function (o) {
+            return h('label', { class: 'haken' }, [h('input', { type: 'radio', name: 'pdf-stufe', id: o[2], checked: D.pdfMode === o[0], onchange: function () { D.pdfMode = o[0]; persist(); } }), h('span', { text: o[1] })]);
+          }))]),
         bindCheck('pruef-an', D, 'pruefAn', 'Prüfknopf bei jeder Frage anbieten', renderSettings),
         D.pruefAn ? h('div', { class: 'schalter', role: 'radiogroup', 'aria-label': 'Wie oft geprüft werden darf' }, [['gesamt', 'Anzahl gilt für alle Fragen zusammen', 'pruef-art-gesamt'], ['frage', 'Anzahl gilt für jede Frage', 'pruef-art-frage']].map(function (o) {
           return h('label', { class: 'haken' }, [h('input', { type: 'radio', name: 'pruef-art', id: o[2], checked: D.pruefArt === o[0], onchange: function () { D.pruefArt = o[0]; persist(); } }), h('span', { text: o[1] })]);
         })) : null,
         D.pruefAn ? field('pruef-anzahl', 'Anzahl der Prüfungen', h('input', { type: 'number', id: 'pruef-anzahl', min: 1, max: 99, step: 1, value: D.pruefZahl, oninput: function (e) { D.pruefZahl = Number(e.target.value); persist(); } })) : null,
+        bindCheck('aufloesen', D, 'reveal', 'Auflösen-Knopf bei jeder Frage anbieten'),
+        bindCheck('neustart', D, 'selfRestart', 'Neustart ohne Lehrer-PIN erlauben'),
         bindCheck('fenster', D, 'logBlur', 'Auffälliges Verhalten mit Uhrzeit protokollieren'),
         bindCheck('vollbild', D, 'fullscreen', 'Test im Vollbild erzwingen'),
+        bindCheck('nur-chrome', D, 'browserCheck', 'Nur in Chrome oder Edge starten'),
         bindCheck('sperre', D, 'lock', 'Kopieren, Einfügen und Rechtsklick sperren'),
         h('p', { class: 'hinweis', text: 'Protokolliert wird, was im Testfenster passiert. Welche Seiten oder Programme außerhalb offen sind, kann ein Browser nicht sehen.' }),
         field('startcode', 'Startcode (optional)', bindText('startcode', D, 'startCode', { autocomplete: 'off' }), 'Ohne diesen Code sehen Schüler die Fragen nicht. Du sagst ihn zu Beginn an.'),
         field('pin', 'Lehrer-PIN', bindText('pin', D, 'pin', { autocomplete: 'off' }), 'Gibt einen Computer für die nächste Person frei.')]),
+      h('section', { class: 'blatt tafel', id: 'unterlagen' }, [h('h2', { text: 'Unterlagen (PDF)' }),
+        h('p', { class: 'hinweis', text: 'Schüler können diese PDFs während des Tests neben den Fragen öffnen, mit Suche und Inhaltsverzeichnis.' }),
+        DOCS.length ? h('ul', { class: 'unterlagen-liste' }, DOCS.map(function (d, i) {
+          return h('li', { class: 'zeile' }, [
+            h('input', { type: 'text', value: d.name, 'aria-label': 'Name der Unterlage', maxlength: 60, oninput: function (e) { d.name = e.target.value; saveDocs(); } }),
+            h('span', { class: 'hinweis', text: mb(docBytes(d)) }),
+            h('button', { class: 'btn klein still', type: 'button', text: 'Entfernen', onclick: function () { DOCS.splice(i, 1); saveDocs(); renderSettings(); } })]);
+        })) : null,
+        h('button', { class: 'btn klein', type: 'button', id: 'knopf-pdf-dazu', text: 'PDF hinzufügen', onclick: function () { pdfInput.click(); } }),
+        DOCS.length ? h('p', { class: 'hinweis', text: 'Die Schüler-Datei wird dadurch etwa ' + mb(DOCS.reduce(function (s, d) { return s + d.data.length; }, 0) + 1450000) + ' größer.' }) : null]),
       h('section', { class: 'blatt tafel' }, [h('h2', { text: 'Bewertung' }),
         bindCheck('noten', g, 'on', 'Note nach Notenschlüssel anzeigen', renderSettings),
         g.on ? h('p', { class: 'hinweis', text: 'Grenzen in Prozent der Gesamtpunkte, darunter Note 5.' }) : null,
@@ -451,14 +497,17 @@
       needCode: !!code, pinHash: C.hash(id + ':' + String(D.pin).trim()), preview: !!preview,
       shuffleQ: D.shuffleQ, shuffleO: D.shuffleO, showSolutions: D.showSolutions, logBlur: D.logBlur,
       fullscreen: !preview && !!D.fullscreen, lock: !!D.lock,
+      reveal: !!D.reveal, selfRestart: !!D.selfRestart, single: !!D.single, scoreOnly: !!D.scoreOnly, browserCheck: !!D.browserCheck, pdfMode: D.pdfMode,
       checks: D.pruefAn ? { mode: D.pruefArt === 'frage' ? 'frage' : 'gesamt', n: D.pruefZahl } : null,
       grading: D.grading.on ? D.grading : null
     };
     var html = decodeTemplate();
+    if (!DOCS.length) html = html.replace(/<!--SMU_PDFJS-->[\s\S]*?<!--\/SMU_PDFJS-->/, '');
+    var docsHtml = DOCS.map(function (d) { return '<script type="text/plain" class="smu-doc" data-name="' + esc(d.name.trim() || 'Unterlage').replace(/"/g, '&quot;') + '">' + d.data + '</' + 'script>'; }).join('\n');
     var jsonMeta = JSON.stringify(meta).replace(/</g, '\\u003c');
     /* Ein einziger Durchlauf: Eingesetzter Text wird nicht noch einmal nach Platzhaltern durchsucht */
-    var fill = { TITLE: esc(meta.title), META: jsonMeta, DATA: C.seal({ questions: questions, secret: secret }, id, code) };
-    html = html.replace(/@@SMU_(TITLE|META|DATA)@@/g, function (m, k) { return fill[k]; });
+    var fill = { TITLE: esc(meta.title), META: jsonMeta, DATA: C.seal({ questions: questions, secret: secret }, id, code), DOCS: docsHtml };
+    html = html.replace(/@@SMU_(TITLE|META|DATA|DOCS)@@/g, function (m, k) { return fill[k]; });
     var parsed = new DOMParser().parseFromString(html, 'text/html');
     var fp = C.fingerprint(['smu-meta', 'smu-data', 'smu-core', 'smu-code'].map(function (i) { return parsed.getElementById(i).textContent; }));
     return { html: html, kontrolle: { art: 'smue-kontrolle', v: 1, id: id, secret: secret, fp: fp, title: meta.title, cls: meta.cls, minutes: meta.minutes, grading: meta.grading,
@@ -553,7 +602,9 @@
   }
 
   function exportDraft() {
-    saveFile('Smue-Entwurf_' + slug(D.title) + '.json', JSON.stringify(D, null, 2), 'application/json').then(function (ok) {
+    var out = JSON.parse(JSON.stringify(D));
+    if (DOCS.length) out.docs = DOCS;
+    saveFile('Smue-Entwurf_' + slug(D.title) + '.json', JSON.stringify(out, null, 2), 'application/json').then(function (ok) {
       if (ok) toast('Entwurf gespeichert.');
     });
   }
@@ -561,8 +612,9 @@
     var rd = new FileReader();
     rd.onload = function () {
       try {
-        var d = cleanDraft(JSON.parse(rd.result));
+        var raw = JSON.parse(rd.result), d = cleanDraft(raw);
         if (!d) throw new Error('form');
+        DOCS = cleanDocs(raw.docs); saveDocs();
         d.sample = false; D = d; problems = {}; persist(); renderSettings(); renderQuestions();
         toast('Entwurf geladen.');
       } catch (e) { toast('Diese Datei ist kein Smü-Entwurf.'); }
@@ -573,7 +625,7 @@
     dialog('Neuen Test beginnen?', [h('p', { text: D.sample ? 'Der Beispiel-Test wird geleert.' : 'Der aktuelle Entwurf wird geleert. Speichere ihn vorher, wenn du ihn noch brauchst.' })], [
       h('button', { class: 'btn', type: 'button', text: 'Abbrechen', onclick: closeDialog }),
       h('button', { class: 'btn voll', type: 'button', id: 'wirklich-neu', text: 'Leeren', onclick: function () {
-        D = emptyDraft(); problems = {}; persist(); renderSettings(); renderQuestions(); closeDialog();
+        D = emptyDraft(); DOCS = []; saveDocs(); problems = {}; persist(); renderSettings(); renderQuestions(); closeDialog();
         var t = document.getElementById('titel'); if (t) t.focus();
       } })]);
   }
@@ -613,8 +665,11 @@
     rows.forEach(function (r) { var k = r.name.trim().toLowerCase(); if (k) names[k] = (names[k] || 0) + 1; });
     var ok = rows.filter(function (r) { return r.status === 'echt'; }).length;
     box.append(h('p', { class: 'hinweis', id: 'pruef-summe', text: rows.length + (rows.length === 1 ? ' Abgabe' : ' Abgaben') + ', davon ' + ok + ' echt.' }));
+    if (rows.some(function (r) { return r.fragen; })) box.append(h('div', { class: 'zeile' }, [
+      h('button', { class: 'btn klein', type: 'button', id: 'knopf-auswertung', text: 'Einzelauswertung drucken', onclick: drucken }),
+      h('span', { class: 'hinweis', text: 'Alle Abgaben mit jeder Frage, Antwort und Punkten, je Schüler eine Seite. Im Druckdialog auch „Als PDF speichern“.' })]));
     box.append(h('div', { class: 'tabelle' }, [h('table', {}, [
-      h('thead', {}, [h('tr', {}, ['Datei', 'Name', 'Punkte', 'Note', 'Status', 'Protokoll'].map(function (t) { return h('th', { text: t }); }))]),
+      h('thead', {}, [h('tr', {}, ['Datei', 'Name', 'Punkte', 'Note', 'Status', 'Antworten', 'Protokoll'].map(function (t) { return h('th', { text: t }); }))]),
       h('tbody', {}, rows.map(function (r) {
         var notes = r.hinweise.slice();
         if (names[r.name.trim().toLowerCase()] > 1) notes.push('Mehrere Abgaben mit diesem Namen.');
@@ -623,9 +678,41 @@
           h('td', { text: r.earned === null ? '–' : C.fmt(r.earned) + ' von ' + C.fmt(r.max) }),
           h('td', { text: r.note ? String(r.note.nr) : '–' }),
           h('td', {}, [h('b', { class: 'status ' + r.status, text: LABEL[r.status] })].concat(notes.map(function (t) { return h('div', { class: 'hinweis', text: t }); }))),
+          h('td', {}, r.fragen ? [h('details', {}, [h('summary', { text: r.fragen.length + ' Fragen' }), fragenTabelle(r)])] : [h('span', { text: '–' })]),
           h('td', {}, r.log.length ? [h('details', {}, [h('summary', { text: r.log.length + (r.log.length === 1 ? ' Eintrag' : ' Einträge') }),
             h('ul', {}, r.log.map(function (e) { return h('li', { text: logText(e) }); }))])] : [h('span', { text: 'keine' })])]);
       }))])]));
+  }
+  /* Einzelauswertung aus den Prüfdaten: auch wenn das Schüler-PDF nur eine Abgabebestätigung ist */
+  var MARKE = { full: '✓', partial: '±', wrong: '✗', empty: '✗', revealed: '–' };
+  function fragenTabelle(r) {
+    return h('table', { class: 'einzel' }, [
+      h('thead', {}, [h('tr', {}, ['', 'Frage', 'Antwort', 'Punkte'].map(function (t) { return h('th', { text: t }); }))]),
+      h('tbody', {}, r.fragen.map(function (f, i) {
+        return h('tr', { 'data-status': f.status }, [
+          h('td', { class: 'marke ' + f.status, text: (i + 1) + ' ' + MARKE[f.status] }),
+          h('td', { class: 'umbruch', text: f.prompt }),
+          h('td', { class: 'umbruch' }, [h('div', { text: f.given || 'keine Antwort' }),
+            f.status !== 'full' && f.solution ? h('div', { class: 'loesung', text: 'Richtig: ' + f.solution }) : null,
+            f.status === 'revealed' ? h('div', { class: 'hinweis', text: 'aufgelöst' }) : null]),
+          h('td', { class: 'ziffern', text: C.fmt(f.earned) + ' / ' + C.fmt(f.max) })]);
+      }))]);
+  }
+  function drucken() {
+    var alt = document.getElementById('druck-auswertung'); if (alt) alt.remove();
+    var teile = rows.filter(function (r) { return r.fragen; }).map(function (r) {
+      return h('section', { class: 'druck-schueler' }, [
+        h('h2', { text: r.name + (r.cls ? ' · ' + r.cls : '') }),
+        h('p', { text: (K ? K.title + ' · ' : '') + C.fmt(r.earned) + ' von ' + C.fmt(r.max) + ' Punkten (' + C.fmt(r.pct) + ' %)' + (r.note ? ' · Note ' + r.note.nr : '') + ' · ' + LABEL[r.status] + ' · Datei: ' + r.datei }),
+        r.hinweise.length ? h('p', { class: 'hinweis', text: r.hinweise.join(' ') }) : null,
+        fragenTabelle(r)]);
+    });
+    var box = h('div', { id: 'druck-auswertung' }, teile);
+    document.body.append(box);
+    document.body.classList.add('drucke-auswertung');
+    var fertig = function () { document.body.classList.remove('drucke-auswertung'); box.remove(); window.removeEventListener('afterprint', fertig); };
+    window.addEventListener('afterprint', fertig);
+    window.print();
   }
   function readAll(files) {
     return Promise.all(Array.prototype.map.call(files, function (f) {
@@ -672,6 +759,22 @@
   document.getElementById('knopf-laden').addEventListener('click', function () { fileInput.click(); });
   fileInput.addEventListener('change', function () { if (fileInput.files[0]) importDraft(fileInput.files[0]); fileInput.value = ''; });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDialog(); var v = document.getElementById('vorschau'); if (v) v.remove(); } });
+
+  var pdfInput = h('input', { type: 'file', id: 'datei-unterlage', accept: 'application/pdf,.pdf', multiple: true, hidden: true });
+  document.body.append(pdfInput);
+  pdfInput.addEventListener('change', function () {
+    Array.prototype.forEach.call(pdfInput.files, function (f) {
+      var rd = new FileReader();
+      rd.onload = function () {
+        var data = String(rd.result).replace(/^data:[^,]*,/, '');
+        if (!/^JVBER/.test(data)) { toast(f.name + ' ist keine PDF-Datei.'); return; }
+        DOCS.push({ name: f.name.replace(/\.pdf$/i, '').slice(0, 60), data: data }); saveDocs(); renderSettings();
+      };
+      rd.readAsDataURL(f);
+    });
+    pdfInput.value = '';
+  });
+  docsDb('readonly', function (s) { return s.get('docs'); }).then(function (a) { DOCS = cleanDocs(a); if (DOCS.length) renderSettings(); }, function () {});
 
   renderSettings(); renderAdd(); renderQuestions();
   window.SMU_HILFE.init();

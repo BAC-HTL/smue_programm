@@ -86,3 +86,20 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .editor-tabelle td.leer { background: var(--gelb-fond); }
 .zelle-art { display: block; width: 100%; margin-top: 3px; padding: 1px 4px; border: 1px dashed var(--linie); border-radius: 3px; background: transparent; color: var(--leise); font-size: 12px; cursor: pointer; }
 .zelle-art[aria-pressed="true"] { border-style: solid; border-color: var(--gelb); color: var(--gelb); font-weight: 700; }
+
+/* Einzelauswertung im Prüf-Tool und zum Drucken */
+table.einzel { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 14px; margin-top: 6px; }
+table.einzel th, table.einzel td { border-bottom: 1px solid var(--linie); padding: 4px 6px; text-align: left; vertical-align: top; }
+table.einzel td.marke { white-space: nowrap; font-weight: 700; }
+table.einzel td.marke.full { color: var(--gruen); }
+table.einzel td.marke.partial { color: var(--gelb); }
+table.einzel td.marke.wrong, table.einzel td.marke.empty { color: var(--rot); }
+table.einzel .loesung { color: var(--gruen); font-size: 13px; }
+#druck-auswertung { display: none; }
+@media print {
+  body.drucke-auswertung > *:not(#druck-auswertung) { display: none !important; }
+  body.drucke-auswertung #druck-auswertung { display: block; color: #000; background: #fff; }
+  .druck-schueler { break-after: page; }
+  .druck-schueler h2 { margin: 0 0 4px; }
+  table.einzel { font-size: 11px; }
+}

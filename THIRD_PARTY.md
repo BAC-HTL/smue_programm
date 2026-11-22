@@ -5,6 +5,7 @@ Diese Bestandteile werden beim Bauen in `Smue-Programm.html` und die Schüler-Da
 | Bestandteil | Version | Lizenz | Zweck |
 | --- | --- | --- | --- |
 | [jsPDF](https://github.com/parallax/jsPDF) | 2.5.2 | MIT | PDF-Auswertung |
+| [PDF.js](https://github.com/mozilla/pdf.js) (pdfjs-dist) | 3.11.174 | Apache 2.0 | Unterlagen im Test anzeigen (nur in Schüler-Dateien mit Unterlagen) |
 | [Atkinson Hyperlegible](https://fontsource.org/fonts/atkinson-hyperlegible) | 5.3.0 (Fontsource) | SIL Open Font License 1.1 | Schrift der Oberfläche |
 | [Barlow Condensed](https://fontsource.org/fonts/barlow-condensed) | 5.3.0 (Fontsource) | SIL Open Font License 1.1 | Punktezahlen |
 | [JetBrains Mono](https://fontsource.org/fonts/jetbrains-mono) | 5.3.0 (Fontsource) | SIL Open Font License 1.1 | Timer und Ziffern |

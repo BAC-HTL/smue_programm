@@ -64,7 +64,8 @@
   var KINDS = {
     check: 'Prüfknopf benutzt', paste: 'Einfügen', copy: 'Kopieren', menu: 'Rechtsklick', key: 'Tastenkürzel', screen: 'Vollbild verlassen',
     panel: 'Seitenleiste oder Entwicklertools', size: 'Fenstergröße', ext: 'Fremde Inhalte auf der Seite', burst: 'Text auf einmal eingetragen',
-    back: 'Antwort kurz nach der Rückkehr', idle: 'Keine Aktivität', reload: 'Seite neu geladen', monitor: 'Zweiter Bildschirm'
+    back: 'Antwort kurz nach der Rückkehr', idle: 'Keine Aktivität', reload: 'Seite neu geladen', monitor: 'Zweiter Bildschirm',
+    reveal: 'Frage aufgelöst'
   };
   var lastLog = {}, seenOnce = {};
   function logging() { return M.logBlur && S && S.phase === 'test'; }
@@ -186,9 +187,42 @@
   }
   function stopWatch() { clearInterval(watcher); watcher = 0; }
 
+  /* ---------- Browser: Tastatursperre und Unterlagen gibt es nur in Chrome und Edge ----------
+     Erkennung über die Markennamen (navigator.userAgentData), sonst über den User-Agent.
+     Der Safe Exam Browser (Chromium) ist erlaubt. Eine gefälschte Kennung überlistet die Prüfung, sie ist eine Hürde, kein Beweis. */
+  var BROWSER_NAME = { chrome: 'Google Chrome', edge: 'Microsoft Edge', seb: 'Safe Exam Browser', chromium: 'Chromium', firefox: 'Firefox', safari: 'Safari', andere: 'ein anderer Browser' };
+  function browser() {
+    var ua = navigator.userAgent || '', d = navigator.userAgentData;
+    if (/SEB\//.test(ua)) return 'seb';
+    if (d && Array.isArray(d.brands) && d.brands.length) {
+      var b = d.brands.map(function (x) { return String(x.brand); });
+      if (b.indexOf('Microsoft Edge') >= 0) return 'edge';
+      if (b.indexOf('Google Chrome') >= 0) return 'chrome';
+      var eigen = b.filter(function (x) { return !/not.?a.?brand/i.test(x) && x !== 'Chromium'; });
+      return !eigen.length && b.indexOf('Chromium') >= 0 ? 'chromium' : 'andere';
+    }
+    if (/Firefox\//.test(ua)) return 'firefox';
+    if (/Safari\//.test(ua) && !/Chrome\/|Chromium\//.test(ua)) return 'safari';
+    return 'andere';
+  }
+  function browserOk() { return !M.browserCheck || M.preview || /^(chrome|edge|seb|chromium)$/.test(browser()); }
+  function viewBrowser() {
+    var name = BROWSER_NAME[browser()];
+    app.append(h('main', { class: 'seite' }, [kopf(),
+      h('section', { class: 'blatt formular', role: 'alert', id: 'falscher-browser' }, [
+        h('h2', { text: 'Bitte öffne den Test in Chrome oder Edge' }),
+        h('p', { text: 'Du hast den Test in ' + name + ' geöffnet. Dieser Test läuft nur in Google Chrome oder Microsoft Edge, weil nur dort Vollbild und Tastatursperre richtig funktionieren.' }),
+        h('ol', { class: 'regeln' }, [
+          h('li', { text: 'Schließ dieses Fenster.' }),
+          h('li', { text: 'Klick mit der rechten Maustaste auf die Test-Datei und wähle „Öffnen mit“.' }),
+          h('li', { text: 'Wähle Google Chrome oder Microsoft Edge.' })]),
+        h('p', { class: 'hinweis', text: 'Wenn beides fehlt, sag deiner Lehrkraft Bescheid.' })])]));
+  }
+
   /* ---------- Start ---------- */
   function viewStart() {
     clear();
+    if (!browserOk()) { viewBrowser(); return; }
     var err = h('p', { class: 'fehler', role: 'alert', hidden: true });
     var first = h('input', { type: 'text', id: 'vorname', autocomplete: 'off', required: true });
     var last = h('input', { type: 'text', id: 'nachname', autocomplete: 'off', required: true });
@@ -222,11 +256,13 @@
         h('li', { text: 'Wenn die Zeit abläuft, wird dein Test automatisch abgegeben.' }),
         h('li', { text: 'Du kannst die Seite neu laden: Antworten und Zeit bleiben erhalten.' }),
         M.checks ? h('li', { text: M.checks.mode === 'frage' ? 'Bei jeder Frage kannst du deine Antwort ' + M.checks.n + ' Mal prüfen.' : 'Du kannst deine Antworten insgesamt ' + M.checks.n + ' Mal prüfen. Teil dir das gut ein.' }) : null,
+        M.reveal ? h('li', { text: 'Mit „Auflösen“ siehst du die richtige Antwort einer Frage. Diese Frage bringt dann 0 Punkte.' }) : null,
         M.fullscreen ? h('li', { text: 'Der Test läuft im Vollbild. Wenn du es verlässt, verschwinden die Fragen, bis du zurückkehrst. Die Zeit läuft weiter.' }) : null,
         M.lock ? h('li', { text: 'Kopieren, Einfügen und Rechtsklick sind gesperrt.' }) : null,
         M.logBlur ? h('li', { text: 'Fensterwechsel, Einfügen, Kopieren, Tastenkürzel und Erweiterungen werden mit Uhrzeit im Protokoll vermerkt. Das Protokoll steht im PDF.' }) : null
       ]),
       err,
+      folderRow(),
       h('div', {}, [h('button', { class: 'btn voll', type: 'submit', text: 'Test starten' })])
     ]);
     app.append(h('main', { class: 'seite' }, [kopf(), form,
@@ -243,7 +279,7 @@
     });
     var now = Date.now();
     S = { phase: 'test', first: f, last: l, cls: cls || '', code: code, startedAt: now, endsAt: now + M.minutes * 60000,
-      order: order, opts: opts, answers: {}, blurs: 0, log: [], fsOk: !!fsOk, checks: {}, checked: {} };
+      order: order, opts: opts, answers: {}, blurs: 0, log: [], fsOk: !!fsOk, checks: {}, checked: {}, revealed: {}, browser: BROWSER_NAME[browser()] };
     if (M.fullscreen && !fsOk) logE('screen', 'Vollbild war auf diesem Gerät nicht möglich');
     save();
     viewTest();
@@ -252,6 +288,7 @@
   /* ---------- Test ---------- */
   function byOrder() { return S.order.map(function (i) { return Q[i]; }); }
   function setAnswer(q, v) {
+    if (S.revealed && S.revealed[q.id]) return; /* aufgelöste Fragen bleiben, wie sie sind */
     S.answers[q.id] = v; save(); updateCount(); showCheck(q);
     if (lastReturn && !lastReturn.done[q.id] && Date.now() - lastReturn.at <= 30000) {
       lastReturn.done[q.id] = 1;
@@ -263,7 +300,8 @@
   function updateCount() {
     if (!countEl) return;
     var done = Q.filter(function (q) { return C.isAnswered(q, S.answers[q.id]); }).length;
-    countEl.textContent = done + ' von ' + Q.length + ' beantwortet';
+    countEl.textContent = M.single ? 'Frage ' + (Math.min(S.pos || 0, Q.length - 1) + 1) + ' von ' + Q.length
+      : done + ' von ' + Q.length + ' beantwortet';
   }
   var INPUT = { type: 'text', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false' };
   function inp(extra) { var a = {}, k; for (k in INPUT) a[k] = INPUT[k]; for (k in extra) a[k] = extra[k]; return h('input', a); }
@@ -290,13 +328,14 @@
       var b = document.getElementById('pruef-' + q.id);
       if (!b) return;
       var left = checksLeft(q);
+      if (isRevealed(q)) { b.disabled = true; b.textContent = 'Prüfen (aufgelöst)'; return; }
       b.disabled = left === 0;
       b.textContent = left ? 'Prüfen (noch ' + left + ')' : 'Prüfen (aufgebraucht)';
     });
   }
   function runCheck(q, n) {
     var msg = document.getElementById('pruef-msg-' + q.id);
-    if (S.phase !== 'test' || checksLeft(q) === 0) return;
+    if (S.phase !== 'test' || checksLeft(q) === 0 || isRevealed(q)) return;
     if (!C.isAnswered(q, S.answers[q.id])) { msg.textContent = 'Trag zuerst eine Antwort ein.'; msg.className = 'pruef-ergebnis'; return; }
     var key = answerKey(q), c = S.checked[q.id];
     if (c && c.a === key) { showCheck(q); return; } /* dieselbe Antwort kostet nichts */
@@ -308,10 +347,48 @@
     showCheck(q); refreshChecks();
   }
   function checkRow(q, n) {
-    if (!M.checks) return [];
+    if (!M.checks && !M.reveal) return [];
     return [h('div', { class: 'pruefzeile' }, [
-      h('button', { class: 'btn klein', type: 'button', id: 'pruef-' + q.id, title: M.checks.mode === 'frage' ? 'Prüft deine Antwort. Diese Prüfungen gelten nur für diese Frage.' : 'Prüft deine Antwort. Alle Fragen teilen sich diese Prüfungen.', onclick: function () { runCheck(q, n); } }),
-      h('span', { class: 'pruef-ergebnis', id: 'pruef-msg-' + q.id, role: 'status' })])];
+      M.checks ? h('button', { class: 'btn klein', type: 'button', id: 'pruef-' + q.id, title: M.checks.mode === 'frage' ? 'Prüft deine Antwort. Diese Prüfungen gelten nur für diese Frage.' : 'Prüft deine Antwort. Alle Fragen teilen sich diese Prüfungen.', onclick: function () { runCheck(q, n); } }) : null,
+      M.checks ? h('span', { class: 'pruef-ergebnis', id: 'pruef-msg-' + q.id, role: 'status' }) : null,
+      M.reveal ? h('button', { class: 'btn klein still', type: 'button', id: 'aufloesen-' + q.id, text: 'Auflösen', title: 'Zeigt die richtige Antwort. Diese Frage bringt dann 0 Punkte.', onclick: function () { askReveal(q, n); } }) : null]),
+      M.reveal ? h('div', { class: 'antwort richtig aufgeloest', id: 'loesung-' + q.id, hidden: true }) : null];
+  }
+
+  /* ---------- Auflösen: zeigt die Lösung einer Frage, die Frage bringt danach 0 Punkte ---------- */
+  function isRevealed(q) { return !!(S && S.revealed && S.revealed[q.id]); }
+  function askReveal(q, n) {
+    if (S.phase !== 'test' || isRevealed(q)) return;
+    var b = document.getElementById('aufloesen-' + q.id);
+    if (b.getAttribute('data-sicher')) { reveal(q, n); return; }
+    b.setAttribute('data-sicher', '1');
+    b.textContent = 'Wirklich auflösen? 0 Punkte';
+    setTimeout(function () { if (!isRevealed(q) && b.isConnected) { b.removeAttribute('data-sicher'); b.textContent = 'Auflösen'; } }, 4000);
+  }
+  function reveal(q, n) {
+    S.revealed = S.revealed || {};
+    S.revealed[q.id] = true;
+    save();
+    logE('reveal', 'Frage aufgelöst', n);
+    showReveal(q); refreshChecks(); updateCount();
+  }
+  function showReveal(q) {
+    if (!isRevealed(q)) return;
+    var box = document.getElementById('loesung-' + q.id), b = document.getElementById('aufloesen-' + q.id);
+    if (!box) return;
+    var sec = box.closest('section');
+    if (sec) {
+      sec.classList.add('ist-aufgeloest');
+      Array.prototype.forEach.call(sec.querySelectorAll('.inhalt input, .inhalt select'), function (el) { el.disabled = true; });
+    }
+    if (b) { b.disabled = true; b.textContent = 'Aufgelöst · 0 Punkte'; }
+    box.textContent = '';
+    if (q.type === 'table') {
+      box.append(h('span', { class: 'k', text: 'Lösung' }), resultTable(q, null, true));
+    } else {
+      box.append(h('span', { class: 'k', text: 'Lösung' }), h('span', { text: C.grade(q, undefined).solution }));
+    }
+    box.hidden = false;
   }
 
   function imageOf(q, n) {
@@ -398,34 +475,65 @@
     var bar = h('div', { class: 'zeitbalken' }, [balken]);
     var live = h('div', { 'aria-live': 'assertive', style: 'position:absolute;left:-9999px' });
     countEl = h('span', {});
+    if (hasDocs() && !U) U = unterlagen();
+    var uKnopf = U ? h('button', { class: 'btn klein', type: 'button', id: 'knopf-unterlagen', text: 'Unterlagen', 'aria-expanded': 'false', 'aria-controls': 'unterlagen',
+      title: 'Zeigt die erlaubten Unterlagen (z. B. Datenblatt, Schaltplan) neben dem Test.', onclick: function () {
+        if (U.offen()) U.schliessen(uKnopf); else U.oeffnen(uKnopf, leiste);
+      } }) : null;
     var leiste = h('div', { class: 'leiste' }, [
       h('div', { class: 'leiste-innen' }, [
         h('div', { class: 'wer' }, [h('b', { text: fullName() }), countEl]),
-        uhr,
+        uhr, uKnopf,
         h('button', { class: 'btn klein', type: 'button', text: 'Abgeben', title: 'Beendet den Test. Du wirst vorher noch einmal gefragt.', onclick: askSubmit })
       ]), bar]);
-    var list = byOrder().map(function (q, i) {
+    var alle = byOrder();
+    function posten(q, i) {
       return h('section', { class: 'posten', 'data-nr': i + 1, 'aria-label': 'Frage ' + (i + 1) }, [
         h('div', { class: 'rand' }, [h('span', { class: 'nr', text: (i + 1) + '.' }),
           h('span', { class: 'pkt', text: C.fmt(C.maxPoints(q)) + ' P.' })]),
         h('div', { class: 'inhalt' }, withImage(q, questionBody(q, i + 1), i + 1).concat(checkRow(q, i + 1)))]);
-    });
+    }
+    /* Eine Frage pro Seite: nur die aktuelle Frage steht im Dokument, zurück geht es nicht */
+    if (M.single && typeof S.pos !== 'number') { S.pos = 0; save(); }
+    var blatt = h('div', { class: 'blatt' }, M.single ? [] : alle.map(posten));
+    var fuss = h('div', { class: 'blatt abgabe' });
+    function zeigeFrage() {
+      blatt.textContent = ''; fuss.textContent = '';
+      var i = Math.min(S.pos, alle.length - 1), letzte = i === alle.length - 1;
+      blatt.append(posten(alle[i], i));
+      currentQ = i + 1;
+      var weiter = h('button', { class: 'btn voll', type: 'button', id: 'weiter', text: letzte ? 'Test abgeben' : 'Weiter zur nächsten Frage', onclick: function () {
+        if (letzte) { askSubmit(); return; }
+        if (!weiter.getAttribute('data-sicher')) {
+          weiter.setAttribute('data-sicher', '1');
+          weiter.textContent = C.isAnswered(alle[i], S.answers[alle[i].id]) ? 'Sicher? Zurück geht nicht mehr' : 'Frage noch offen – trotzdem weiter?';
+          setTimeout(function () { if (weiter.isConnected) { weiter.removeAttribute('data-sicher'); weiter.textContent = 'Weiter zur nächsten Frage'; } }, 4000);
+          return;
+        }
+        S.pos = i + 1; save();
+        zeigeFrage(); updateCount(); refreshChecks(); Q.forEach(showCheck); Q.forEach(showReveal);
+        window.scrollTo(0, 0);
+      } });
+      fuss.append(h('span', { class: 'hinweis', text: letzte ? 'Letzte Frage. Danach gibst du ab.' : 'Frage ' + (i + 1) + ' von ' + alle.length + '. Mit „Weiter“ kommst du nicht mehr zurück.' }), weiter);
+    }
+    if (M.single) zeigeFrage();
+    else fuss.append(
+      h('span', { class: 'hinweis', text: 'Fertig? Kontrolliere deine Antworten und gib dann ab.' }),
+      h('button', { class: 'btn voll', type: 'button', text: 'Test abgeben', onclick: askSubmit }));
     guardBar = h('div', { class: 'freigabe', hidden: true }, [
       h('span', { text: 'Der Test läuft im Vollbild. Die Zeit läuft weiter.' }),
       h('button', { class: 'btn klein', type: 'button', id: 'zurueck-vollbild', text: 'Zurück zum Vollbild', onclick: function () {
         enterFs().then(guard);
       } })]);
     testMain = h('main', { class: 'seite' }, [
-      kopf(),
-      h('div', { class: 'blatt' }, list),
-      h('div', { class: 'blatt abgabe' }, [
-        h('span', { class: 'hinweis', text: 'Fertig? Kontrolliere deine Antworten und gib dann ab.' }),
-        h('button', { class: 'btn voll', type: 'button', text: 'Test abgeben', onclick: askSubmit })])]);
+      kopf(), blatt, fuss, U ? U.el : null]);
     app.append(leiste, guardBar, live, testMain);
     document.body.classList.toggle('gesperrt', !!M.lock);
+    document.body.classList.toggle('einzeln', !!M.single);
     updateCount();
     refreshChecks();
     Q.forEach(showCheck);
+    Q.forEach(showReveal);
     guard();
     startWatch();
 
@@ -462,20 +570,30 @@
     openLeave = null;
     stopWatch(); leaveFs();
     document.body.classList.remove('gesperrt');
+    document.body.classList.remove('einzeln');
+    if (U) U.schliessen(null);
     save();
     viewDone();
     /* Das PDF wird sofort angeboten; der Knopf bleibt für den Fall, dass der Browser es blockiert. */
-    setTimeout(function () { try { makePdf(); } catch (e) { /* Knopf bleibt verfügbar */ } }, 300);
+    setTimeout(function () { pdfNow(); }, 300);
   }
 
   function results() {
-    var rows = byOrder().map(function (q) { var g = C.grade(q, S.answers[q.id]); g.q = q; return g; });
+    var rows = byOrder().map(function (q) { var g = C.gradeRevealed(q, S.answers[q.id], S.revealed); g.q = q; return g; });
     var earned = rows.reduce(function (s, r) { return s + r.earned; }, 0);
     var max = rows.reduce(function (s, r) { return s + r.max; }, 0);
     var pct = max ? Math.floor(earned / max * 1000 + 1e-6) / 10 : 0; /* nie aufrunden, sonst kippt die Note an der Grenze */
     return { rows: rows, earned: earned, max: max, pct: pct, note: C.gradeLabel(pct, M.grading) };
   }
-  var MARK = { full: '✓', partial: '±', wrong: '✗', empty: '✗' };
+  var MARK = { full: '✓', partial: '±', wrong: '✗', empty: '✗', revealed: '–' };
+  var MARK_LABEL = { full: 'richtig', partial: 'teilweise richtig', wrong: 'falsch', empty: 'falsch', revealed: 'aufgelöst' };
+  /* Wie viel das Schüler-PDF (und die Ergebnisseite) zeigt:
+     voll     = Antworten mit ✓/✗, Punkten je Frage und (falls eingestellt) Lösungen
+     ohne     = nur die eigenen Antworten, ohne Bewertung je Frage: Raten und früh Abgeben verrät nichts
+     quittung = nur Name, Zeiten, Gesamtpunkte und Protokoll. Die Antworten stecken unsichtbar in den Prüfdaten,
+                die Lehrkraft sieht die Einzelauswertung unter „Abgaben prüfen“. */
+  function stufe() { return M.pdfMode === 'ohne' || M.pdfMode === 'quittung' ? M.pdfMode : 'voll'; }
+  function bewertet() { return stufe() === 'voll'; }
 
   function viewDone() {
     clear();
@@ -486,21 +604,25 @@
       h('div', { text: C.fmt(r.pct) + ' % der Punkte' + (r.note ? ' · Note ' + r.note.nr + ' (' + r.note.name + ')' : '') }),
       S.auto ? h('div', { class: 'hinweis', text: 'Die Zeit ist abgelaufen, der Test wurde automatisch abgegeben.' }) : null
     ];
+    var mit = bewertet();
     var rows = r.rows.map(function (x, i) {
       var q = x.q;
       return h('section', { class: 'posten', 'aria-label': 'Frage ' + (i + 1) }, [
         h('div', { class: 'rand' }, [h('span', { class: 'nr', text: (i + 1) + '.' }),
-          h('span', { class: 'erreicht', text: C.fmt(x.earned) }),
-          h('span', { class: 'pkt', text: 'von ' + C.fmt(x.max) })]),
+          mit ? h('span', { class: 'erreicht', text: C.fmt(x.earned) }) : null,
+          h('span', { class: 'pkt', text: mit ? 'von ' + C.fmt(x.max) : C.fmt(x.max) + ' P.' })]),
         h('div', { class: 'inhalt' }, [
           h('div', { class: 'zeile', style: 'flex-wrap:nowrap;align-items:flex-start' }, [
-            h('span', { class: 'mark ' + x.status, 'aria-label': x.status === 'full' ? 'richtig' : x.status === 'partial' ? 'teilweise richtig' : 'falsch', text: MARK[x.status] }),
+            mit ? h('span', { class: 'mark ' + x.status, 'aria-label': MARK_LABEL[x.status], text: MARK[x.status] }) : null,
             h('p', { class: 'frage', style: 'min-width:0', text: q.type === 'cloze' ? q.prompt.replace(/\{[^{}]*\}/g, '_____') : q.prompt })]),
-          q.type === 'table' ? resultTable(q, S.answers[q.id]) : h('div', { class: 'antwort' }, [h('span', { class: 'k', text: 'Deine Antwort' }), h('span', { text: x.given || 'keine Antwort' })]),
-          M.showSolutions && x.status !== 'full' && q.type !== 'table' ? h('div', { class: 'antwort richtig' }, [h('span', { class: 'k', text: 'Richtig wäre' }), h('span', { text: x.solution })]) : null
+          mit && x.status === 'revealed' ? h('p', { class: 'hinweis', text: 'Aufgelöst, daher 0 Punkte.' }) : null,
+          q.type === 'table' ? resultTable(q, S.answers[q.id], x.status === 'revealed', !mit) : h('div', { class: 'antwort' }, [h('span', { class: 'k', text: 'Deine Antwort' }), h('span', { text: x.given || 'keine Antwort' })]),
+          mit && (M.showSolutions || x.status === 'revealed') && x.status !== 'full' && q.type !== 'table' ? h('div', { class: 'antwort richtig' }, [h('span', { class: 'k', text: 'Richtig wäre' }), h('span', { text: x.solution })]) : null
         ])]);
     });
+    msg.id = 'pdf-meldung';
     var foot = h('div', { class: 'fusszeile' }, [
+      M.selfRestart ? h('button', { class: 'btn klein', type: 'button', id: 'neu-starten', text: 'Test neu starten', title: 'Löscht dieses Ergebnis und beginnt den Test von vorne. Speichere vorher das PDF, wenn du es behalten willst.', onclick: function (e) { askRestart(e.currentTarget); } }) : null,
       h('button', { class: 'btn still klein', type: 'button', text: 'Für die nächste Person freigeben (Lehrkraft)', onclick: function () { askPin(foot); } })]);
     app.append(h('main', { class: 'seite' }, [kopf(),
       h('div', { class: 'blatt' }, [
@@ -508,11 +630,82 @@
           h('div', { class: 'note-hand' }, [C.fmt(r.earned), h('span', { class: 'von', text: ' von ' + C.fmt(r.max) })]),
           h('div', { class: 'ergebnis-info' }, side)]),
         h('div', { class: 'ergebnis-aktion' }, [
-          h('button', { class: 'btn voll', type: 'button', id: 'pdf-holen', title: 'Speichert deine Auswertung als PDF im Download-Ordner.', text: 'PDF mit Auswertung speichern', onclick: function () {
-            try { makePdf(); msg.textContent = 'Das PDF liegt in deinem Download-Ordner.'; }
-            catch (e) { msg.textContent = 'Das PDF konnte nicht erstellt werden. Sag deiner Lehrkraft Bescheid und zeig ihr diese Seite.'; }
-          } }), msg])]),
-      h('div', { class: 'blatt' }, rows), protocolBox(), foot]));
+          h('button', { class: 'btn voll', type: 'button', id: 'pdf-holen', title: 'Speichert deine Auswertung als PDF im gewählten Speicherordner, sonst im Download-Ordner.', text: stufe() === 'quittung' ? 'Abgabebestätigung als PDF speichern' : 'PDF mit Auswertung speichern', onclick: function () { pdfNow(); } }),
+          folderRow(), msg])]),
+      M.scoreOnly || stufe() === 'quittung' ? null : h('div', { class: 'blatt' }, rows), protocolBox(), foot]));
+  }
+
+  /* PDF erstellen und Ergebnis melden */
+  function pdfNow() {
+    var msg = document.getElementById('pdf-meldung');
+    var p;
+    try { p = makePdf(); } catch (e) { p = Promise.reject(e); }
+    return p.then(function (folder) {
+      if (msg) msg.textContent = folder ? 'Das PDF liegt im Ordner „' + folder + '“.' : 'Das PDF liegt in deinem Download-Ordner.';
+    }, function () {
+      if (msg) msg.textContent = 'Das PDF konnte nicht erstellt werden. Sag deiner Lehrkraft Bescheid und zeig ihr diese Seite.';
+    });
+  }
+
+  /* Neustart ohne PIN: zweiter Klick bestätigt */
+  function askRestart(b) {
+    if (b.getAttribute('data-sicher')) { wipe(); S = null; Q = null; viewStart(); return; }
+    b.setAttribute('data-sicher', '1');
+    b.textContent = 'Wirklich neu starten? Ergebnis wird gelöscht';
+    setTimeout(function () { if (b.isConnected) { b.removeAttribute('data-sicher'); b.textContent = 'Test neu starten'; } }, 4000);
+  }
+
+  /* ---------- Speicherordner: einmal wählen, der Browser merkt ihn sich ---------- */
+  function canFolder() { return !!(window.showDirectoryPicker && window.indexedDB); }
+  function idb(mode, fn) {
+    return new Promise(function (ok, no) {
+      var r = indexedDB.open('smue-ordner', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('h'); };
+      r.onerror = function () { no(r.error); };
+      r.onsuccess = function () {
+        var tx = r.result.transaction('h', mode), q = fn(tx.objectStore('h'));
+        tx.oncomplete = function () { ok(q && q.result); r.result.close(); };
+        tx.onerror = function () { no(tx.error); };
+      };
+    });
+  }
+  function getDir() { return canFolder() ? idb('readonly', function (s) { return s.get('dir'); }).catch(function () { return null; }) : Promise.resolve(null); }
+  function pickDir() {
+    return window.showDirectoryPicker({ id: 'smue-pdf', mode: 'readwrite', startIn: 'downloads' }).then(function (d) {
+      return idb('readwrite', function (s) { s.put(d, 'dir'); }).then(function () { return d; });
+    });
+  }
+  function allowed(d) {
+    var o = { mode: 'readwrite' };
+    return d.queryPermission(o).then(function (p) { return p === 'granted' || d.requestPermission(o).then(function (p2) { return p2 === 'granted'; }); });
+  }
+  function saveBlob(blob, name) {
+    return getDir().then(function (d) {
+      if (!d) return null;
+      return allowed(d).then(function (ok) {
+        if (!ok) return null;
+        return d.getFileHandle(name, { create: true })
+          .then(function (fh) { return fh.createWritable(); })
+          .then(function (w) { return w.write(blob).then(function () { return w.close(); }); })
+          .then(function () { return d.name; });
+      });
+    }).catch(function () { return null; }).then(function (folder) {
+      if (folder) return folder;
+      var url = URL.createObjectURL(blob), a = h('a', { href: url, download: name });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+      return null;
+    });
+  }
+  function folderRow() {
+    if (!canFolder()) return null;
+    var label = h('span', { class: 'hinweis', text: 'Speicherort: Download-Ordner' });
+    var show = function (d) { label.textContent = 'Speicherort: ' + (d ? 'Ordner „' + d.name + '“' : 'Download-Ordner'); };
+    getDir().then(show);
+    return h('div', { class: 'ordnerzeile' }, [label,
+      h('button', { class: 'btn klein still', type: 'button', text: 'Ordner wählen', title: 'Wähle den Ordner, in dem die PDFs landen sollen, zum Beispiel den Ordner mit dieser Testdatei. Der Browser merkt sich die Wahl.', onclick: function () {
+        pickDir().then(show, function () { /* abgebrochen */ });
+      } })]);
   }
 
   /* Tabelle mit Antworten; falsche Zellen rot, mit Lösung, wenn Lösungen gezeigt werden */
@@ -527,7 +720,15 @@
       });
     });
   }
-  function resultTable(q, a) {
+  function resultTable(q, a, solutions, ohneBewertung) {
+    var showSol = M.showSolutions || !!solutions;
+    if (ohneBewertung) {   // nur die eigenen Einträge, ohne ✓/✗ und Lösung
+      return h('div', { class: 'tabelle-wrap' }, [h('table', { class: 'aufgabe-tabelle' }, [
+        q.table.head.some(function (x) { return String(x).trim(); }) ? h('thead', {}, [h('tr', {}, q.table.head.map(function (t) { return h('th', { text: t }); }))]) : null,
+        h('tbody', {}, tableCellsFor(q, a).map(function (row) {
+          return h('tr', {}, row.map(function (c) { return h('td', { class: c.fill ? 'leer' : null, text: c.t }); }));
+        }))])]);
+    }
     return h('div', { class: 'tabelle-wrap' }, [h('table', { class: 'aufgabe-tabelle' }, [
       q.table.head.some(function (x) { return String(x).trim(); }) ? h('thead', {}, [h('tr', {}, q.table.head.map(function (t) { return h('th', { text: t }); }))]) : null,
       h('tbody', {}, tableCellsFor(q, a).map(function (row) {
@@ -535,7 +736,7 @@
           if (!c.fill) return h('td', { text: c.t });
           return h('td', { class: 'leer ' + (c.ok ? 'gut' : 'schlecht'), 'aria-label': c.ok ? 'richtig' : 'falsch' }, [
             h('span', { text: (c.ok ? '✓ ' : '✗ ') + c.t }),
-            !c.ok && M.showSolutions ? h('span', { class: 'loesung', text: c.sol }) : null]);
+            !c.ok && showSol ? h('span', { class: 'loesung', text: c.sol }) : null]);
         }));
       }))])]);
   }
@@ -592,8 +793,10 @@
     var mins = Math.max(0, (S.submittedAt - S.startedAt) / 1000);
     var facts = [['Name', fullName()], ['Klasse', S.cls || '–'], ['Beginn', dt(S.startedAt) + ' Uhr'], ['Abgabe', dt(S.submittedAt) + ' Uhr'], ['Bearbeitungszeit', mmss(mins) + ' min (von ' + M.minutes + ' min)']];
     if (M.teacher) facts.push(['Lehrkraft', M.teacher]);
+    if (S.browser) facts.push(['Browser', S.browser]);
     var plog = protocol();
     if (M.checks) facts.push(['Prüfknopf benutzt', Object.keys(S.checks || {}).reduce(function (n, k) { return n + S.checks[k]; }, 0) + ' Mal']);
+    if (M.reveal) facts.push(['Aufgelöst', Object.keys(S.revealed || {}).length + (Object.keys(S.revealed || {}).length === 1 ? ' Frage' : ' Fragen') + ' (je 0 Punkte)']);
     if (M.logBlur) facts.push(['Protokoll', plog.length ? plog.length + (plog.length === 1 ? ' Eintrag' : ' Einträge') + ', siehe Ende' : 'keine Einträge']);
     facts.forEach(function (f) {
       font('bold', 10); doc.text(f[0], L, y);
@@ -623,12 +826,13 @@
         y += 6.5;
       }
       cells.forEach(function (row) {
-        var tall = M.showSolutions && row.some(function (c) { return c.fill && !c.ok; }), rh = tall ? 10 : 6.5;
+        var tall = mit && M.showSolutions && row.some(function (c) { return c.fill && !c.ok; }), rh = tall ? 10 : 6.5;
         if (y + rh > BOTTOM) page();
         line(); doc.rect(x0, y - 4.5, cw * cols, rh);
         row.forEach(function (c, ci) {
           if (ci) doc.line(x0 + ci * cw, y - 4.5, x0 + ci * cw, y - 4.5 + rh);
           if (!c.fill) { font('normal', 9, TEXT); doc.text(fit(c.t), x0 + ci * cw + 1, y); return; }
+          if (!mit) { font('bold', 9, TEXT); doc.text(fit(c.t), x0 + ci * cw + 1, y); return; }
           font('bold', 9, c.ok ? GREEN : RED); doc.text(fit((c.ok ? '✓ ' : '✗ ') + c.t), x0 + ci * cw + 1, y);
           if (!c.ok && M.showSolutions) { font('normal', 8, GREEN); doc.text(fit(c.sol), x0 + ci * cw + 1, y + 4); }
         });
@@ -636,14 +840,21 @@
       });
     }
 
-    font('bold', 12, INK); doc.text('Fragen im Einzelnen', L, y); y += 7;
-    var marks = { full: ['✓', GREEN], partial: ['±', AMBER], wrong: ['✗', RED], empty: ['✗', RED] };
-    r.rows.forEach(function (x, i) {
+    var mit = bewertet();
+    if (stufe() === 'quittung') {
+      font('bold', 12, INK); doc.text('Abgabebestätigung', L, y); y += 6;
+      font('normal', 10, TEXT);
+      lines('Deine Antworten sind in diesem PDF gespeichert und signiert. Die Auswertung der einzelnen Fragen bekommst du von deiner Lehrkraft.', W, L, 10);
+      y += 6;
+    } else { font('bold', 12, INK); doc.text(mit ? 'Fragen im Einzelnen' : 'Deine Antworten', L, y); y += 7; }
+    var marks = { full: ['✓', GREEN], partial: ['±', AMBER], wrong: ['✗', RED], empty: ['✗', RED], revealed: ['–', GREY] };
+    (stufe() === 'quittung' ? [] : r.rows).forEach(function (x, i) {
       if (y + 24 > BOTTOM) page();
       var m = marks[x.status], prompt = x.q.type === 'cloze' ? x.q.prompt.replace(/\{[^{}]*\}/g, '_____') : x.q.prompt;
       font('bold', 10.5, INK); doc.text((i + 1) + '.', L, y);
-      font('bold', 10.5, m[1]); doc.text(m[0], L + 8, y);
-      font('bold', 10.5, RED); doc.text(C.fmt(x.earned) + ' / ' + C.fmt(x.max) + ' P.', R, y, { align: 'right' });
+      if (mit) { font('bold', 10.5, m[1]); doc.text(m[0], L + 8, y); }
+      if (mit) { font('bold', 10.5, RED); doc.text(C.fmt(x.earned) + ' / ' + C.fmt(x.max) + ' P.', R, y, { align: 'right' }); }
+      else { font('normal', 10.5, GREY); doc.text(C.fmt(x.max) + ' P.', R, y, { align: 'right' }); }
       font('bold', 10.5); lines(prompt, W - 36, L + 14, 10.5);
       if (x.q.image) {
         var iw = W - 14, ih = iw * x.q.image.h / x.q.image.w;
@@ -655,9 +866,10 @@
       }
       y += 0.5;
       if (x.q.type === 'table') { pdfTable(x.q); y += 1; if (y < BOTTOM) { doc.setDrawColor.apply(doc, [200, 211, 228]); doc.setLineWidth(0.2); doc.line(L, y, R, y); } y += 6; return; }
+      if (mit && x.status === 'revealed') { font('bold', 9, GREY); doc.text('Aufgelöst, daher 0 Punkte', L + 14, y); y += 5; }
       font('bold', 9, GREY); doc.text('Deine Antwort', L + 14, y); y += 4;
       font('normal', 10); lines(x.given || 'keine Antwort', W - 14, L + 14, 10);
-      if (M.showSolutions && x.status !== 'full') {
+      if (mit && (M.showSolutions || x.status === 'revealed') && x.status !== 'full') {
         y += 0.5;
         font('bold', 9, GREEN); doc.text('Richtig wäre', L + 14, y); y += 4;
         font('normal', 10, GREEN); lines(x.solution, W - 14, L + 14, 10);
@@ -710,10 +922,10 @@
     doc.setProperties({ title: M.title + ' – ' + fullName(), subject: 'Auswertung', author: M.teacher || '' });
     var clean = function (s) { return String(s).replace(/[äÄöÖüÜß]/g, function (c) { return { ä: 'ae', Ä: 'Ae', ö: 'oe', Ö: 'Oe', ü: 'ue', Ü: 'Ue', ß: 'ss' }[c]; }).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, ''); };
     var name = 'Auswertung_' + clean(M.title).slice(0, 60) + '_' + clean(S.last).slice(0, 50) + '_' + clean(S.first).slice(0, 50) + '.pdf';
-    if (!SECRET) { doc.save(name); return; }
+    if (!SECRET) { doc.save(name); return Promise.resolve(null); }
     /* Prüfdaten: alle Rohdaten und zwei Signaturen. Sie liegen in einem eigenen PDF-Objekt und bleiben beim Lesen unsichtbar. */
     var pruef = C.b64Text(JSON.stringify({ v: 1, test: M.id, fp: selfPrint(), first: S.first, last: S.last, cls: S.cls, startedAt: S.startedAt,
-      submittedAt: S.submittedAt, auto: !!S.auto, answers: S.answers, log: S.log || [], shown: { earned: r.earned, max: r.max, pct: r.pct } }));
+      submittedAt: S.submittedAt, auto: !!S.auto, answers: S.answers, revealed: S.revealed || {}, log: S.log || [], shown: { earned: r.earned, max: r.max, pct: r.pct } }));
     var block = C.pruefBlock(pruef, C.hmac(SECRET, pruef));
     doc.internal.events.subscribe('postPutResources', function () {
       doc.internal.newObject();
@@ -724,10 +936,7 @@
       doc.internal.out('endobj');
     });
     var bytes = C.siegeln(new Uint8Array(doc.output('arraybuffer')), SECRET);
-    var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-    var a = h('a', { href: url, download: name });
-    document.body.append(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+    return saveBlob(new Blob([bytes], { type: 'application/pdf' }), name);
   }
 
   /* ---------- Fensterwechsel ---------- */
@@ -802,6 +1011,7 @@
     var k = String(e.key || '').toLowerCase(), mod = e.ctrlKey || e.metaKey, name = '';
     if (k !== 'meta' && k !== 'os') winAllein = false;
     var P = e.metaKey ? 'Cmd' : 'Strg';
+    if (mod && k === 'f' && U && U.offen()) { e.preventDefault(); U.suche(); return; }   // Suche in den Unterlagen
     if (k === 'f12') name = 'F12 (Entwicklertools)';
     else if (mod && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) name = P + '+Umschalt+' + k.toUpperCase() + ' (Entwicklertools)';
     else if (mod && e.altKey && (k === 'i' || k === 'j' || k === 'c')) name = P + '+Alt+' + k.toUpperCase() + ' (Entwicklertools)';
@@ -835,13 +1045,366 @@
     }
   }, true);
 
+  /* ---------- Unterlagen: eingebaute PDFs, mit pdf.js auf der Testseite gezeichnet ----------
+     Kein eigenes Fenster und kein Rahmen: Fokus, Vollbild, Sperren und Protokoll bleiben wie im Test.
+     Es gibt keine Textebene (nichts zum Kopieren) und keine Links. */
+  var DOCS = Array.prototype.map.call(document.querySelectorAll('script.smu-doc'), function (s) {
+    return { name: s.getAttribute('data-name') || 'Unterlage', el: s, pdf: null, page: 1, scale: 0, text: [], q: '', hits: [], hit: -1 };
+  });
+  var U = null;
+  function hasDocs() { return DOCS.length > 0 && !!window.pdfjsLib; }
+  function pdfLib() {
+    var L = window.pdfjsLib;
+    if (!L.GlobalWorkerOptions.workerSrc) {
+      var w = document.getElementById('smu-pdfworker');
+      L.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([w ? w.textContent : ''], { type: 'text/javascript' }));
+    }
+    return L;
+  }
+  function openDoc(d) {
+    if (!d.pdf) {
+      var b = atob(d.el.textContent.replace(/\s+/g, '')), u = new Uint8Array(b.length);
+      for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+      d.pdf = pdfLib().getDocument({ data: u, isEvalSupported: false, enableXfa: false }).promise;
+    }
+    return d.pdf;
+  }
+  function unterlagen() {
+    var cur = null, pages = [], io = null, token = 0, ready = Promise.resolve();
+    var tabs = h('div', { class: 'u-tabs', role: 'tablist' });
+    var inhalt = h('select', { class: 'u-inhalt', 'aria-label': 'Inhaltsverzeichnis', onchange: function () {
+      var v = inhalt.value; inhalt.selectedIndex = 0;
+      if (v) goto(Number(v));
+    } });
+    var seite = h('input', { class: 'u-seite', type: 'text', inputmode: 'numeric', autocomplete: 'off', 'aria-label': 'Seite', onkeydown: function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); goto(parseInt(seite.value, 10) || 1); }
+    } });
+    var von = h('span', { class: 'hinweis' });
+    var such = h('input', { class: 'u-such', type: 'search', placeholder: 'Suchen …', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Im Dokument suchen', onkeydown: function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); suchen(such.value, e.shiftKey ? -1 : 1); }
+    } });
+    var info = h('span', { class: 'hinweis u-info', 'aria-live': 'polite' });
+    var flaeche = h('div', { class: 'u-flaeche', tabindex: '0', 'aria-label': 'Dokument' });
+    var kopfU = h('div', { class: 'u-kopf' }, [tabs,
+      h('div', { class: 'u-gruppe' }, [
+        h('button', { class: 'btn klein', type: 'button', title: 'Vorige Seite', 'aria-label': 'Vorige Seite', text: '◀', onclick: function () { goto(cur.page - 1); } }),
+        seite, von,
+        h('button', { class: 'btn klein', type: 'button', title: 'Nächste Seite', 'aria-label': 'Nächste Seite', text: '▶', onclick: function () { goto(cur.page + 1); } })]),
+      h('div', { class: 'u-gruppe' }, [
+        h('button', { class: 'btn klein', type: 'button', title: 'Verkleinern', 'aria-label': 'Verkleinern', text: '−', onclick: function () { zoom(cur.scale / 1.2); } }),
+        h('button', { class: 'btn klein', type: 'button', title: 'Vergrößern', 'aria-label': 'Vergrößern', text: '+', onclick: function () { zoom(cur.scale * 1.2); } }),
+        h('button', { class: 'btn klein', type: 'button', title: 'Auf Fensterbreite', text: 'Breite', onclick: function () { zoom(0); } })]),
+      inhalt,
+      h('div', { class: 'u-gruppe' }, [such,
+        h('button', { class: 'btn klein', type: 'button', title: 'Voriger Treffer', 'aria-label': 'Voriger Treffer', text: '↑', onclick: function () { suchen(such.value, -1); } }),
+        h('button', { class: 'btn klein', type: 'button', title: 'Nächster Treffer', 'aria-label': 'Nächster Treffer', text: '↓', onclick: function () { suchen(such.value, 1); } }),
+        info])]);
+    var teiler = h('div', { class: 'u-teiler', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Breite der Unterlagen', tabindex: '0',
+      title: 'Ziehen, um die Unterlagen breiter oder schmäler zu machen' });
+    var panel = h('div', { class: 'unterlagen', id: 'unterlagen', role: 'region', 'aria-label': 'Unterlagen', hidden: true }, [teiler, kopfU, flaeche]);
+
+    /* Trennleiste zwischen Test und Unterlagen: Breite als Anteil des Fensters, pro Gerät gemerkt */
+    var ANTEIL = 'smue:unterlagen-breite';
+    function breiteSetzen(px) {
+      var w = window.innerWidth, min = Math.min(360, w * 0.3);
+      px = Math.max(min, Math.min(w - min, px));
+      document.documentElement.style.setProperty('--u-breite', Math.round(px) + 'px');
+      teiler.setAttribute('aria-valuenow', String(Math.round(px / w * 100)));
+      return px / w;
+    }
+    function breiteLaden() {
+      var a = 0;
+      try { a = Number(localStorage.getItem(ANTEIL)) || 0; } catch (e) { /* ohne Speicher: Standardbreite */ }
+      if (a > 0.15 && a < 0.85) breiteSetzen(a * window.innerWidth);
+    }
+    function breiteFertig(a) {
+      try { localStorage.setItem(ANTEIL, String(a)); } catch (e) { /* nur für diese Sitzung */ }
+      if (cur && cur.fit) zoom(0);
+    }
+    var ziehT = null;
+    teiler.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      ziehT = { a: 0 };
+      try { teiler.setPointerCapture(e.pointerId); } catch (x) { /* geht auch so */ }
+      document.body.classList.add('u-zieht'); e.preventDefault();
+    });
+    teiler.addEventListener('pointermove', function (e) { if (ziehT) ziehT.a = breiteSetzen(window.innerWidth - e.clientX); });
+    function teilerLos() { if (!ziehT) return; var a = ziehT.a; ziehT = null; document.body.classList.remove('u-zieht'); if (a) breiteFertig(a); }
+    teiler.addEventListener('pointerup', teilerLos); teiler.addEventListener('lostpointercapture', teilerLos);
+    teiler.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      breiteFertig(breiteSetzen(panel.getBoundingClientRect().width + (e.key === 'ArrowLeft' ? 40 : -40)));
+    });
+    DOCS.forEach(function (d, i) {
+      d.tab = h('button', { class: 'btn klein', type: 'button', role: 'tab', text: d.name, onclick: function () { show(d); } });
+      tabs.append(d.tab);
+    });
+
+    function fit(vp1) { return Math.max(0.3, (flaeche.clientWidth - 44) / vp1.width); }
+    function show(d) {
+      if (cur === d) return ready;
+      if (cur) cur.page = curPage();
+      cur = d; token++;
+      DOCS.forEach(function (x) { x.tab.setAttribute('aria-selected', x === d ? 'true' : 'false'); });
+      flaeche.textContent = ''; pages = []; inhalt.textContent = ''; info.textContent = 'Lädt …';
+      such.value = d.q;
+      var my = token;
+      ready = openDoc(d).then(function (pdf) {
+        if (my !== token) return;
+        return pdf.getPage(1).then(function (p1) {
+          if (my !== token) return;
+          d.vp1 = p1.getViewport({ scale: 1 });
+          if (!d.scale) { d.scale = fit(d.vp1); d.fit = true; }
+          von.textContent = 'von ' + pdf.numPages;
+          info.textContent = '';
+          aufbauen(pdf);
+          goto(d.page, true);
+          return pdf.getOutline().then(function (o) { if (my === token) liste(pdf, o || []); }, function () {});
+        });
+      }, function () { info.textContent = 'Das Dokument konnte nicht geöffnet werden.'; });
+      return ready;
+    }
+    function aufbauen(pdf) {
+      if (io) io.disconnect();
+      flaeche.textContent = ''; pages = [];
+      io = new IntersectionObserver(function (list) {
+        list.forEach(function (en) {
+          var p = pages[Number(en.target.getAttribute('data-p')) - 1];
+          if (en.isIntersecting) zeichnen(pdf, p); else freigeben(p);
+        });
+      }, { root: flaeche, rootMargin: '1200px 600px' });
+      for (var i = 1; i <= pdf.numPages; i++) {
+        var div = h('div', { class: 'u-blatt', 'data-p': i });
+        /* Größe bei Maßstab 1; bis die Seite gezeichnet ist, gilt die Größe der ersten Seite */
+        pages.push({ nr: i, div: div, canvas: null, task: null, vp: null, scale: 0, w1: cur.vp1.width, h1: cur.vp1.height });
+        flaeche.append(div);
+      }
+      groesse();
+      pages.forEach(function (p) { io.observe(p.div); });
+    }
+    function groesse() {
+      pages.forEach(function (p) { p.div.style.width = p.w1 * cur.scale + 'px'; p.div.style.height = p.h1 * cur.scale + 'px'; });
+    }
+    function zeichnen(pdf, p) {
+      if (p.task || (p.canvas && p.scale === cur.scale)) return;
+      var my = token, scale = cur.scale;
+      p.task = pdf.getPage(p.nr).then(function (page) {
+        if (my !== token || !p.task) return;
+        var vp = page.getViewport({ scale: scale }), dpr = window.devicePixelRatio || 1, v1 = page.getViewport({ scale: 1 });
+        if (v1.width !== p.w1 || v1.height !== p.h1) {
+          p.w1 = v1.width; p.h1 = v1.height;
+          p.div.style.width = p.w1 * cur.scale + 'px'; p.div.style.height = p.h1 * cur.scale + 'px';
+        }
+        var c = document.createElement('canvas');
+        c.width = Math.floor(vp.width * dpr); c.height = Math.floor(vp.height * dpr);
+        var r = page.render({ canvasContext: c.getContext('2d'), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null });
+        p.render = r;
+        return r.promise.then(function () {
+          if (my !== token || !p.task) return;
+          /* neue Zeichnung erst einsetzen, wenn sie fertig ist: kein Flackern beim Zoomen */
+          if (p.canvas) { p.canvas.width = 0; p.canvas.remove(); }
+          p.div.prepend(c); p.canvas = c; p.vp = vp; p.scale = scale; p.task = null; p.render = null;
+          marken(p);
+          if (scale !== cur.scale) zeichnen(pdf, p);
+        });
+      }).catch(function () { p.task = null; p.render = null; });
+    }
+    function freigeben(p) {
+      if (p.render) { try { p.render.cancel(); } catch (e) { /* schon fertig */ } }
+      p.task = null; p.render = null;
+      if (p.canvas) { p.canvas.width = 0; p.canvas.remove(); p.canvas = null; }
+      p.scale = 0;
+      ohneMarken(p);
+    }
+    function ohneMarken(p) { Array.prototype.slice.call(p.div.querySelectorAll('.u-treffer')).forEach(function (m) { m.remove(); }); }
+
+    /* Zoomen um einen Punkt (Mauszeiger oder Mitte): der Punkt unter dem Zeiger bleibt stehen.
+       Zuerst werden nur die Seitengrößen geändert (die alte Zeichnung wird gestreckt), kurz danach scharf neu gezeichnet. */
+    var nachZoom = 0;
+    function zoomAt(s, cx, cy) {
+      if (!cur || !cur.vp1 || !pages.length) return;
+      s = Math.max(0.25, Math.min(6, s));
+      if (Math.abs(s - cur.scale) < 1e-4) return;
+      var r = flaeche.getBoundingClientRect();
+      if (cx == null) { cx = r.left + flaeche.clientWidth / 2; cy = r.top + flaeche.clientHeight / 2; }
+      var ox = cx - r.left, oy = cy - r.top, y = flaeche.scrollTop + oy, p = pages[pages.length - 1];
+      for (var i = 0; i < pages.length; i++) if (pages[i].div.offsetTop + pages[i].div.offsetHeight > y) { p = pages[i]; break; }
+      var fx = (flaeche.scrollLeft + ox - p.div.offsetLeft) / p.div.offsetWidth, fy = (y - p.div.offsetTop) / p.div.offsetHeight;
+      cur.scale = s;
+      groesse();
+      flaeche.scrollLeft = p.div.offsetLeft + fx * p.div.offsetWidth - ox;
+      flaeche.scrollTop = p.div.offsetTop + fy * p.div.offsetHeight - oy;
+      pages.forEach(ohneMarken);
+      clearTimeout(nachZoom);
+      nachZoom = setTimeout(function () {
+        openDoc(cur).then(function (pdf) { pages.forEach(function (x) { if (x.canvas) zeichnen(pdf, x); }); });
+      }, 180);
+    }
+    flaeche.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey || !cur) return;   // Strg + Mausrad (auch Zwei-Finger-Zoom am Touchpad) zoomt, sonst wird geblättert
+      e.preventDefault();
+      cur.fit = false;
+      zoomAt(cur.scale * Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.003), e.clientX, e.clientY);
+    }, { passive: false });
+    /* Mit gedrückter Maustaste verschieben */
+    var zug = null;
+    flaeche.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || e.pointerType === 'touch') return;
+      var r = flaeche.getBoundingClientRect();
+      if (e.clientX - r.left >= flaeche.clientWidth || e.clientY - r.top >= flaeche.clientHeight) return;   // Bildlaufleiste
+      zug = { x: e.clientX, y: e.clientY, l: flaeche.scrollLeft, t: flaeche.scrollTop };
+      try { flaeche.setPointerCapture(e.pointerId); } catch (x) { /* ohne Capture geht es auch */ }
+      flaeche.classList.add('zieht'); flaeche.focus({ preventScroll: true }); e.preventDefault();
+    });
+    flaeche.addEventListener('pointermove', function (e) {
+      if (!zug) return;
+      flaeche.scrollLeft = zug.l - (e.clientX - zug.x); flaeche.scrollTop = zug.t - (e.clientY - zug.y);
+    });
+    function los() { if (zug) { zug = null; flaeche.classList.remove('zieht'); } }
+    flaeche.addEventListener('pointerup', los); flaeche.addEventListener('pointercancel', los); flaeche.addEventListener('lostpointercapture', los);
+    function curPage() {
+      var y = flaeche.scrollTop + flaeche.clientHeight / 3;
+      for (var i = 0; i < pages.length; i++) if (pages[i].div.offsetTop + pages[i].div.offsetHeight > y) return i + 1;
+      return pages.length || 1;
+    }
+    function goto(n, sofort) {
+      if (!pages.length) return;
+      n = Math.max(1, Math.min(pages.length, n));
+      cur.page = n; seite.value = String(n);
+      flaeche.scrollTop = pages[n - 1].div.offsetTop - 12;
+    }
+    flaeche.addEventListener('scroll', function () {
+      if (!cur || !pages.length) return;
+      var n = curPage();
+      if (String(n) !== seite.value && document.activeElement !== seite) seite.value = String(n);
+      cur.page = n;
+    });
+    function zoom(s) {
+      if (!cur || !cur.vp1) return;
+      cur.fit = !s;
+      zoomAt(s || fit(cur.vp1));
+    }
+    function liste(pdf, outline) {
+      var flat = [];
+      (function walk(items, depth) {
+        items.forEach(function (it) { if (flat.length < 800) { flat.push({ t: it.title, dest: it.dest, d: depth }); walk(it.items || [], depth + 1); } });
+      })(outline, 0);
+      inhalt.hidden = !flat.length;
+      if (!flat.length) return;
+      inhalt.append(h('option', { value: '', text: 'Inhalt …' }));
+      var my = token;
+      /* Ziele auflösen: benanntes Ziel -> Seite */
+      Promise.all(flat.map(function (f) {
+        var dest = typeof f.dest === 'string' ? pdf.getDestination(f.dest) : Promise.resolve(f.dest);
+        return dest.then(function (d) { return d && d[0] ? (typeof d[0] === 'number' ? d[0] : pdf.getPageIndex(d[0])) : null; })
+          .then(function (ix) { return ix == null ? null : ix + 1; }, function () { return null; });
+      })).then(function (nrs) {
+        if (my !== token) return;
+        flat.forEach(function (f, i) {
+          if (!nrs[i]) return;
+          inhalt.append(h('option', { value: String(nrs[i]), text: new Array(f.d + 1).join(' ') + f.t + '  (S. ' + nrs[i] + ')' }));
+        });
+      });
+    }
+    function textOf(pdf, n) {
+      if (cur.text[n]) return Promise.resolve(cur.text[n]);
+      var d = cur;
+      return pdf.getPage(n).then(function (p) { return p.getTextContent(); }).then(function (tc) {
+        d.text[n] = tc.items.map(function (it) { return { s: it.str || '', t: it.transform, w: it.width, h: it.height }; });
+        return d.text[n];
+      });
+    }
+    function suchen(q, dir) {
+      if (!cur) return;
+      q = String(q || '').trim().toLowerCase();
+      if (!q) { cur.q = ''; cur.hits = []; cur.hit = -1; info.textContent = ''; pages.forEach(marken); return; }
+      if (q === cur.q && cur.hits.length) {
+        cur.hit = (cur.hit + dir + cur.hits.length) % cur.hits.length;
+        zumTreffer(); return;
+      }
+      var d = cur;
+      d.q = q; d.hits = []; d.hit = -1;
+      openDoc(d).then(function (pdf) {
+        var n = pdf.numPages, i = 1;
+        function weiter() {
+          if (cur !== d || d.q !== q) return;
+          if (i > n) {
+            if (!d.hits.length) { info.textContent = 'Nichts gefunden.'; pages.forEach(marken); return; }
+            var start = d.page; d.hit = 0;
+            for (var k = 0; k < d.hits.length; k++) if (d.hits[k].p >= start) { d.hit = k; break; }
+            zumTreffer(); return;
+          }
+          if (i % 20 === 1) info.textContent = 'Suche … Seite ' + i + ' von ' + n;
+          textOf(pdf, i).then(function (items) {
+            items.forEach(function (it, ix) {
+              var s = it.s.toLowerCase(), at = s.indexOf(q);
+              while (at >= 0) { d.hits.push({ p: i, ix: ix, at: at, len: q.length }); at = s.indexOf(q, at + 1); }
+            });
+            i++; weiter();
+          }, function () { i++; weiter(); });
+        }
+        weiter();
+      });
+    }
+    var messer = document.createElement('canvas').getContext('2d');
+    messer.font = '10px Arial, Helvetica, sans-serif';
+    function breite(s) { return messer.measureText(s).width; }
+    function rechteck(p, hit) {
+      var it = cur.text[p.nr][hit.ix], t = it.t, ganz = breite(it.s) || 1;
+      var hoch = it.h || Math.hypot(t[2], t[3]);
+      /* Lage im Textstück über die Schriftbreite schätzen (genauer als nach Buchstabenzahl) */
+      var x0 = t[4] + it.w * breite(it.s.slice(0, hit.at)) / ganz, x1 = t[4] + it.w * breite(it.s.slice(0, hit.at + hit.len)) / ganz;
+      var r = p.vp.convertToViewportRectangle([x0, t[5] - hoch * 0.25, x1, t[5] + hoch * 0.95]);
+      return { x: Math.min(r[0], r[2]), y: Math.min(r[1], r[3]), w: Math.abs(r[2] - r[0]), h: Math.abs(r[3] - r[1]) };
+    }
+    function marken(p) {
+      Array.prototype.slice.call(p.div.querySelectorAll('.u-treffer')).forEach(function (m) { m.remove(); });
+      if (!p.canvas || !p.vp || p.scale !== cur.scale || !cur.q || !cur.text[p.nr]) return;
+      cur.hits.forEach(function (hit, k) {
+        if (hit.p !== p.nr) return;
+        var r = rechteck(p, hit);
+        p.div.append(h('div', { class: 'u-treffer' + (k === cur.hit ? ' aktiv' : ''), style: 'left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px' }));
+      });
+    }
+    function zumTreffer() {
+      var hit = cur.hits[cur.hit];
+      info.textContent = 'Treffer ' + (cur.hit + 1) + ' von ' + cur.hits.length;
+      var p = pages[hit.p - 1];
+      goto(hit.p);
+      pages.forEach(function (x) { if (x.canvas) marken(x); });
+      /* nach dem Zeichnen genau zum Treffer scrollen */
+      var tries = 0;
+      (function warte() {
+        if (p.canvas && p.vp && p.scale === cur.scale) { var r = rechteck(p, hit); flaeche.scrollTop = p.div.offsetTop + r.y - flaeche.clientHeight / 3; return; }
+        if (tries++ < 40) setTimeout(warte, 50);
+      })();
+    }
+    function offen() { return !panel.hidden; }
+    function oeffnen(knopf, leisteEl) {
+      panel.style.top = Math.round(leisteEl.getBoundingClientRect().bottom) + 'px';
+      breiteLaden();
+      panel.hidden = false;
+      document.body.classList.add('u-offen');
+      knopf.textContent = 'Unterlagen schließen'; knopf.setAttribute('aria-expanded', 'true');
+      show(cur || DOCS[0]);
+    }
+    function schliessen(knopf) {
+      if (cur) cur.page = curPage();
+      panel.hidden = true;
+      document.body.classList.remove('u-offen');
+      if (knopf) { knopf.textContent = 'Unterlagen'; knopf.setAttribute('aria-expanded', 'false'); }
+    }
+    return { el: panel, offen: offen, oeffnen: oeffnen, schliessen: schliessen, suche: function () { such.focus(); such.select(); } };
+  }
+
   /* ---------- Start: laufenden oder fertigen Test wiederherstellen ---------- */
   (function boot() {
     var saved = load();
     if (saved && saved.phase) {
       var data = C.unseal(SEALED, M.id, saved.code);
       if (data) {
-        S = saved; Q = data.questions; SECRET = data.secret || ''; S.log = S.log || []; S.checks = S.checks || {}; S.checked = S.checked || {};
+        S = saved; Q = data.questions; SECRET = data.secret || ''; S.log = S.log || []; S.checks = S.checks || {}; S.checked = S.checked || {}; S.revealed = S.revealed || {};
         if (S.phase === 'test') {
           S.log.forEach(function (e) { if (e.type === 'switch' && !e.back) e.back = Date.now(); });
           var weg = S.closedAt ? Date.now() - S.closedAt : 0;

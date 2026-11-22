@@ -183,6 +183,13 @@
     };
   }
 
+  /* Wie grade, aber eine aufgelöste Frage bringt 0 Punkte und hat den Status „revealed“ */
+  function gradeRevealed(q, a, revealed) {
+    var g = grade(q, a);
+    if (revealed && revealed[q.id]) { g.earned = 0; g.status = 'revealed'; }
+    return g;
+  }
+
   function gradeLabel(pct, grading) {
     if (!grading || !grading.on) return null;
     var names = ['Sehr gut', 'Gut', 'Befriedigend', 'Genügend'], t = grading.thresholds;
@@ -344,7 +351,12 @@
     if (!okDatei) { r.status = 'veraendert'; r.hinweise.push('Das PDF wurde nach der Abgabe verändert.'); }
     if (P.fp !== K.fp) { r.status = 'veraendert'; r.hinweise.push('Die Schüler-Datei wurde vor oder während des Tests verändert.'); }
     var e = 0, m = 0, antworten = P.answers || {};
-    K.questions.forEach(function (q) { var g = grade(q, antworten[q.id]); e += g.earned; m += g.max; });
+    r.fragen = [];   // Einzelauswertung für die Lehrkraft (das Schüler-PDF kann sie weglassen)
+    K.questions.forEach(function (q) {
+      var g = gradeRevealed(q, antworten[q.id], P.revealed); e += g.earned; m += g.max;
+      r.fragen.push({ prompt: q.type === 'cloze' ? q.prompt.replace(/\{[^{}]*\}/g, '_____') : q.prompt, type: q.type,
+        earned: g.earned, max: g.max, status: g.status, given: g.given, solution: g.solution });
+    });
     r.earned = e; r.max = m; r.pct = m ? Math.floor(e / m * 1000 + 1e-6) / 10 : 0; r.note = gradeLabel(r.pct, K.grading);
     if (!P.shown || P.shown.earned !== e || P.shown.max !== m) { r.status = 'veraendert'; r.hinweise.push('Die angezeigten Punkte (' + fmt(P.shown ? P.shown.earned : 0) + ') stimmen nicht mit den nachgerechneten überein.'); }
     r.dauer = P.submittedAt - P.startedAt;
@@ -356,7 +368,7 @@
   var api = {
     roundHalf: roundHalf, partialPoints: partialPoints, numReadings: numReadings, fmt: fmt, norm: norm, textMatches: textMatches, parseNum: parseNum,
     parseCloze: parseCloze, gapsOf: gapsOf, tableGaps: tableGaps, tableChoices: tableChoices, choiceList: choiceList, maxPoints: maxPoints, isAnswered: isAnswered,
-    grade: grade, gradeLabel: gradeLabel, hash: hash, seal: seal, unseal: unseal,
+    grade: grade, gradeRevealed: gradeRevealed, gradeLabel: gradeLabel, hash: hash, seal: seal, unseal: unseal,
     sha256: sha256, hex: hex, hmac: hmac, b64Text: b64Text, textB64: textB64, fingerprint: fingerprint, pruefBlock: pruefBlock, pruefStelle: pruefStelle, siegeln: siegeln, pruefen: pruefen, utf8: utf8
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

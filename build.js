@@ -38,6 +38,9 @@ ${R('src/student.css')}
 <script type="text/plain" id="smu-data">@@SMU_DATA@@</script>
 <script>${safe(R(V + 'jspdf/dist/jspdf.umd.min.js'))}</script>
 <script>window.__SMU_FONTS={r:"${B64('fonts/pdf.ttf')}",b:"${B64('fonts/pdf-Bold.ttf')}"};</script>
+<!--SMU_PDFJS--><script type="text/plain" id="smu-pdfworker">${safe(R(V + 'pdfjs-dist/build/pdf.worker.min.js'))}</script>
+<script>${safe(R(V + 'pdfjs-dist/build/pdf.min.js'))}</script>
+@@SMU_DOCS@@<!--/SMU_PDFJS-->
 <script id="smu-core">${safe(R('src/core.js'))}</script>
 <script id="smu-code">${safe(R('src/student.js'))}</script>
 </body>
