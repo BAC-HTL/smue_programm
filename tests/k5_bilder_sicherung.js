@@ -208,7 +208,7 @@ module.exports = async function () {
     const p = await panel(ctx, [b2.pdf, b3.pdf]); const t = await p.textContent('#pruef-liste'); await p.close(); return String(/Mehrere Abgaben/.test(t));
   });
   await fall('ÄK-G25', 'Protokoll aufklappbar, auch wenn die Seite im PDF fehlen würde', 'true', async () => {
-    const p = await panel(ctx, [orig.pdf]); await p.click('#pruef-liste summary'); const t = await p.textContent('#pruef-liste details'); await p.close(); return String(/Quelltext/.test(t));
+    const p = await panel(ctx, [orig.pdf]); await p.click('#pruef-liste details.protokoll summary'); const t = await p.textContent('#pruef-liste details.protokoll'); await p.close(); return String(/Quelltext/.test(t));
   });
   await fall('ÄK-G26', 'Anleitung beschreibt Bilder und Prüfung', 'true', async () => {
     const p = await master(ctx, basis()); const t = await p.textContent('#anleitung'); await p.close(); return String(/Wo muss das Bild liegen/.test(t) && /Abgaben prüfen/.test(t));

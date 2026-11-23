@@ -5,16 +5,23 @@
   </div>
   <div class="anleitung-text">
     <p class="hinweis">Version @@VERSION@@ · Neueste Version und Doku: <a href="https://bac-htl.github.io/smue_programm/" target="_blank" rel="noopener">bac-htl.github.io/smue_programm</a></p>
-    <p class="anleitung-lead">Mit dem Smü-Programm erstellst du eine schriftliche Mitarbeitsüberprüfung als einzelne Datei. Schüler öffnen sie im Browser, bekommen sofort ihre Punkte und speichern ein PDF mit der Auswertung. Fahre mit der Maus über ein Fragezeichen oder einen Knopf, um eine Erklärung zu sehen.</p>
+    <p class="anleitung-lead">Mit dem Smü-Programm erstellst du eine schriftliche Mitarbeitsüberprüfung als einzelne Datei. Schüler öffnen sie im Browser, bekommen sofort ihre Punkte und speichern ein PDF mit ihrer Abgabe. Fahre mit der Maus über ein Fragezeichen oder einen Knopf, um eine Erklärung zu sehen.</p>
 
     <h3>In fünf Schritten zum Test</h3>
     <ol>
       <li><b>Test beschreiben.</b> Trag links Titel, Fach, Klasse und die Zeit in Minuten ein.</li>
       <li><b>Fragen anlegen.</b> Wähle unten „Frage hinzufügen“. Es gibt beliebig viele Fragen. Jede bekommt eine Fragenart, Punkte und die richtige Lösung.</li>
-      <li><b>Ablauf festlegen.</b> Lege fest, ob gemischt wird, ob Lösungen sichtbar sind und ob Vollbild, Sperre und Protokoll gelten. Notiere dir die Lehrer-PIN.</li>
+      <li><b>Ablauf festlegen.</b> Lege fest, ob gemischt wird, ob Schüler eine Frage pro Seite sehen, was sie nach der Abgabe sehen und ob Vollbild, Sperre und Protokoll gelten. Notiere dir die Lehrer-PIN.</li>
       <li><b>Prüfen.</b> Öffne die Vorschau und spiele den Test einmal durch.</li>
-      <li><b>Erzeugen.</b> Klicke auf „Schüler-Datei erzeugen“. Es werden zwei Dateien gespeichert: die Schüler-Datei und die Kontrolldatei. Der Browser fragt eventuell nach, ob er zwei Dateien speichern darf. Erlaube das.</li>
+      <li><b>Erzeugen.</b> Klicke auf „Schüler-Datei erzeugen“. Es werden zwei Dateien gespeichert: die Schüler-Datei (<code>.html</code>, für die Schüler) und die Kontrolldatei (<code>_Kontrolle.json</code>, nur für dich). Der Browser fragt eventuell nach, ob er zwei Dateien speichern darf. Erlaube das.</li>
     </ol>
+    <div class="tabelle"><table>
+      <thead><tr><th>Datei</th><th>Wer bekommt sie?</th><th>Wofür?</th></tr></thead>
+      <tbody>
+        <tr><td><code>Smue_….html</code></td><td>alle Schüler</td><td>der Test selbst</td></tr>
+        <tr><td><code>Smue_…_Kontrolle.json</code></td><td>nur du, nie weitergeben</td><td>Lösungen und Schlüssel, um die abgegebenen PDFs unter „Abgaben prüfen“ zu kontrollieren</td></tr>
+      </tbody>
+    </table></div>
 
     <h3>Test als PDF exportieren</h3>
     <p>Mit „PDF exportieren“ speicherst du den Test als PDF. Das ist praktisch zum Ausdrucken, als Ersatz bei Technikproblemen oder fürs Archiv.</p>
@@ -95,14 +102,50 @@
     </ul>
     <p>Mit „Neustart ohne Lehrer-PIN erlauben“ erscheint nach der Abgabe der Knopf „Test neu starten“. Ein zweiter Klick bestätigt, dann beginnt der Test von vorne.</p>
 
+    <h3>Eine Frage pro Seite und Überspringen</h3>
+    <p>Mit „Eine Frage pro Seite, kein Zurück“ unter „Ablauf“ sehen Schüler immer nur eine Frage. Bilder werden in voller Breite gezeigt.</p>
+    <ul>
+      <li><b>Frage einreichen</b> führt zur nächsten Frage. Ein zweiter Klick bestätigt, zurück geht es nicht.</li>
+      <li><b>Frage überspringen</b> stellt die Frage ans Ende des Tests. Wie oft das im ganzen Test erlaubt ist, legst du fest (Standard 2, 0 schaltet es ab). Die Zahl steht im Knopf, zum Beispiel „(2) Frage überspringen“, und zählt herunter. Eine schon eingetragene Antwort bleibt erhalten.</li>
+      <li>Jedes Überspringen steht im Protokoll. Neu laden ändert weder die Reihenfolge noch die Zahl.</li>
+    </ul>
+
+    <h3>Was Schüler nach der Abgabe sehen</h3>
+    <p>Wer früh abgibt, könnte seine Lösungen dem Sitznachbarn zeigen. Unter „Ablauf“ legst du deshalb fest, wie viel Schüler sehen:</p>
+    <div class="tabelle"><table>
+      <thead><tr><th>Einstellung</th><th>Ergebnisseite und PDF für Schüler</th></tr></thead>
+      <tbody>
+        <tr><td>Nach der Abgabe nur die Punkte zeigen</td><td>Am Bildschirm nur Punkte, Prozent und Note, keine Übersicht der Fragen.</td></tr>
+        <tr><td>PDF: Vollständig</td><td>Alle Antworten mit ✓/✗ und Punkten je Frage, Lösungen nur, wenn du sie freigibst.</td></tr>
+        <tr><td>PDF: Ohne Bewertung</td><td>Nur die eigenen Antworten, ohne ✓/✗, Punkte je Frage und Lösungen.</td></tr>
+        <tr><td>PDF: Nur Abgabebestätigung</td><td>Gesamtpunkte, keine Antworten.</td></tr>
+      </tbody>
+    </table></div>
+    <p>In jeder Stufe stecken alle Antworten signiert im PDF. Unter „Abgaben prüfen“ siehst du sie vollständig, mit „Einzelauswertung drucken“ je Schüler auf einer Seite.</p>
+
+    <h3>Unterlagen (PDF) im Test</h3>
+    <p>Schüler können im Test erlaubte Unterlagen lesen, zum Beispiel ein Datenblatt oder einen Schaltplan. Die PDFs werden in die Schüler-Datei eingebaut, du verteilst also weiterhin nur die eine HTML-Datei.</p>
+    <ol>
+      <li>Klicke im Abschnitt „Unterlagen (PDF)“ auf „PDF hinzufügen“ und wähle die Datei. Für weitere Unterlagen wiederholst du das, mehrere PDFs sind möglich.</li>
+      <li>Gib jeder Unterlage einen Namen, zum Beispiel „Datenblatt ATmega16A“. Unter diesem Namen wählen Schüler sie im Test aus.</li>
+      <li>Mit „Entfernen“ nimmst du eine Unterlage wieder heraus.</li>
+      <li>Prüfe die Unterlagen in der Vorschau und erzeuge dann die Schüler-Datei.</li>
+    </ol>
+    <p>Die Unterlagen bleiben in diesem Browser gespeichert und stecken auch in „Entwurf speichern“.</p>
+    <ul>
+      <li>Schüler öffnen sie im Test mit „Unterlagen“ neben den Fragen, mit Seitenwahl, Inhaltsverzeichnis und Suche (auch Strg+F).</li>
+      <li>Die Trennleiste lässt sich ziehen, Strg+Mausrad zoomt am Mauszeiger, mit gedrückter Maustaste wird das Blatt verschoben.</li>
+      <li>Die Seiten werden direkt im Test gezeichnet: kein eigenes Fenster, keine Links, kein Kopieren. Vollbild und Protokoll gelten weiter.</li>
+      <li>Große PDFs machen die Schüler-Datei entsprechend größer. Die Größe steht in der Liste.</li>
+    </ul>
+
     <h3>Speicherordner für das PDF</h3>
     <p>In Chrome und Edge können Schüler auf der Start- und der Ergebnisseite mit „Ordner wählen“ festlegen, wohin das PDF gespeichert wird, zum Beispiel in den Ordner mit der Testdatei. Der Browser merkt sich die Wahl und fragt eventuell einmal nach der Erlaubnis. Ohne Wahl oder in anderen Browsern landet das PDF wie bisher im Download-Ordner. Den Ordner der Testdatei kann ein Browser nicht selbst erkennen.</p>
 
     <h3>Schüler-Datei verteilen</h3>
-    <p>Die Schüler-Datei lässt sich einfach kopieren. Sie enthält Fragen, Bilder, Timer und PDF-Funktion und läuft ohne Internet.</p>
+    <p>Schüler bekommen <b>nur die HTML-Datei</b>. Die <code>_Kontrolle.json</code> bleibt bei dir und wird nie verteilt: Sie enthält die Lösungen. Die HTML-Datei enthält alles, was der Test braucht: Fragen, Bilder, Unterlagen, Timer und PDF-Funktion. Sie läuft ohne Internet.</p>
     <ul>
-      <li><b>Verteilen:</b> Über USB-Stick, Netzlaufwerk, Moodle oder E-Mail. Alle bekommen dieselbe Datei.</li>
-      <li><b>Nur die HTML-Datei:</b> Die <code>_Kontrolle.json</code> bleibt bei dir.</li>
+      <li><b>Verteilen:</b> Über USB-Stick, Netzlaufwerk, Moodle oder E-Mail. Alle bekommen dieselbe HTML-Datei.</li>
       <li><b>Öffnen:</b> Datei speichern und per Doppelklick im Browser öffnen. In der Adresszeile steht dann <code>file:///</code>. Bei Dateien aus E-Mail oder Internet kann Windows oder der Browser einmal nachfragen.</li>
       <li><b>Nicht verändern:</b> Der Dateiname darf sich ändern. Wird die Datei aber im Editor oder über „Seite speichern unter“ neu gespeichert, gilt sie bei der Prüfung als verändert.</li>
       <li><b>Nicht neu erzeugen:</b> Jedes Erzeugen ergibt einen neuen Test mit neuer Kontrolldatei. Verteile nur die Datei, zu der du die passende Kontrolldatei hast. Änderst du den Test, verteile die neue Datei an alle.</li>
@@ -112,7 +155,7 @@
 
     <h3>In der Stunde</h3>
     <ol>
-      <li>Lass alle die Datei im Browser öffnen, am besten in Chrome oder Edge.</li>
+      <li>Lass alle die Datei in Chrome oder Edge öffnen. Mit „Nur Chrome oder Edge“ (Standard) startet der Test in anderen Browsern nicht, Schüler sehen dann eine Anleitung. Der Safe Exam Browser ist erlaubt.</li>
       <li>Sag den Startcode an, falls du einen vergeben hast.</li>
       <li>Schüler tragen ihren Namen ein und klicken auf „Test starten“. Ab dann läuft die Zeit.</li>
       <li>Nach der Abgabe erscheinen die Punkte. Das PDF wird automatisch gespeichert, sonst über den Knopf.</li>
@@ -127,13 +170,36 @@
       <li><b>Prüfen:</b> mehrere Fensterwechsel, geöffnete Entwicklertools, fremde Elemente auf der Seite.</li>
       <li><b>Oft harmlos:</b> eine lange Pause, ein einzelner kurzer Fensterwechsel, ein Klick in die Adressleiste, Passwort-Manager als Erweiterung.</li>
     </ul>
+    <p>Was die Einträge bedeuten:</p>
+    <div class="tabelle"><table>
+      <thead><tr><th>Eintrag</th><th>Bedeutung</th></tr></thead>
+      <tbody>
+        <tr><td>Testfenster verlassen bis … (Dauer)</td><td>Das Fenster hatte keinen Fokus, zum Beispiel durch ein anderes Programm. Mit „(vermutlich Strg+Alt+Entf)“ bzw. „(vermutlich Win+L …)“, wenn dabei noch diese Tasten gedrückt waren. Diese Tasten fängt Windows ab, der Browser sieht sie nie direkt.</td></tr>
+        <tr><td>Vollbild verlassen bis … (Dauer)</td><td>Das Vollbild war wirklich beendet, die Fragen waren in der Zeit verborgen.</td></tr>
+        <tr><td>… – versucht, gesperrt</td><td>Eine Taste wie Win+D, Alt+Tab, die Windows-Taste oder Esc wurde gedrückt, aber in Chrome und Edge von der Tastatursperre abgefangen. Der Test blieb im Vollbild.</td></tr>
+        <tr><td>Tastenkürzel</td><td>Zum Beispiel Strg+U oder F12. Ohne Tastatursperre auch Win+D oder Alt+Tab. Was sie bewirkt haben, zeigen die Einträge zum Verlassen.</td></tr>
+      </tbody>
+    </table></div>
 
     <h3>Abgaben prüfen</h3>
     <p>Beim Erzeugen entstehen zwei Dateien: die Schüler-Datei und eine Kontrolldatei mit der Endung <code>_Kontrolle.json</code>. Gib die Kontrolldatei nie weiter und bewahre sie gut auf. Sie enthält die Lösungen und den Schlüssel zum Prüfen. Ohne sie lassen sich die Abgaben nicht prüfen, und sie kann nicht wiederhergestellt werden.</p>
+    <h4>Was steckt in der Kontrolldatei?</h4>
+    <div class="tabelle"><table>
+      <thead><tr><th>Inhalt</th><th>Wozu</th></tr></thead>
+      <tbody>
+        <tr><td>Kennung des Tests</td><td>Ein PDF aus einem anderen Test wird als „anderer Test“ erkannt.</td></tr>
+        <tr><td>Schlüssel</td><td>Jedes Schüler-PDF wird bei der Abgabe damit signiert. So fällt auf, wenn ein PDF nachträglich verändert wurde.</td></tr>
+        <tr><td>Fingerabdruck der Schüler-Datei</td><td>Zeigt, ob jemand an der HTML-Datei etwas verändert hat.</td></tr>
+        <tr><td>Fragen mit Lösungen</td><td>Damit rechnet das Programm die Punkte aus den Antworten im PDF selbst nach und zeigt die Einzelauswertung.</td></tr>
+        <tr><td>Erlaubte Zeit und Notenschlüssel</td><td>Für den Status „auffällig“ und die Note.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Die Datei ist lesbar eingerückt gespeichert. Ändere sie nicht, sonst passt sie nicht mehr zu den Abgaben.</p>
     <ol>
       <li>Klicke auf „Abgaben prüfen“.</li>
       <li>Lade die Kontrolldatei.</li>
       <li>Wähle die PDFs der Schüler aus, gern alle auf einmal.</li>
+      <li>Unter „Antworten“ klappst du je Abgabe alle Fragen mit Antwort, Lösung und Punkten auf. „Einzelauswertung drucken“ druckt sie, je Schüler eine Seite.</li>
     </ol>
     <p>Das Programm prüft mit SHA-256, ob das PDF nach der Abgabe verändert wurde und ob die Schüler-Datei noch dieselbe ist. Es rechnet die Punkte aus den Antworten selbst nach und zeigt das Protokoll, auch wenn jemand die Protokollseite entfernt hat.</p>
     <div class="tabelle"><table>

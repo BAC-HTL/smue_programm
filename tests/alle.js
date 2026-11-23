@@ -12,6 +12,7 @@ const H = require('./hilfsmittel');
   await require('./k6_pruefknopf')();
   await require('./k7_tabelle')();
   await require('./k8_export')();
+  await require('./k9_ueberspringen_protokoll')();
   await H.stop();
   const r = H.ergebnisse, f = r.filter(x => x.status !== 'bestanden');
   fs.writeFileSync(path.join(__dirname, 'ergebnisse.json'), JSON.stringify({ am: new Date().toISOString(), dauerSek: Math.round((Date.now() - t0) / 1000), gesamt: r.length, fehler: f.length, faelle: r }, null, 1));

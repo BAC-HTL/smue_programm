@@ -62,10 +62,10 @@
 
   /* ---------- Protokoll ---------- */
   var KINDS = {
-    check: 'Prüfknopf benutzt', paste: 'Einfügen', copy: 'Kopieren', menu: 'Rechtsklick', key: 'Tastenkürzel', screen: 'Vollbild verlassen',
+    check: 'Prüfknopf benutzt', paste: 'Einfügen', copy: 'Kopieren', menu: 'Rechtsklick', key: 'Tastenkürzel', tried: 'Tastenkürzel versucht (gesperrt)', screen: 'Vollbild verlassen',
     panel: 'Seitenleiste oder Entwicklertools', size: 'Fenstergröße', ext: 'Fremde Inhalte auf der Seite', burst: 'Text auf einmal eingetragen',
     back: 'Antwort kurz nach der Rückkehr', idle: 'Keine Aktivität', reload: 'Seite neu geladen', monitor: 'Zweiter Bildschirm',
-    reveal: 'Frage aufgelöst'
+    reveal: 'Frage aufgelöst', skip: 'Frage übersprungen', nofs: 'Kein Vollbild möglich'
   };
   var lastLog = {}, seenOnce = {};
   function logging() { return M.logBlur && S && S.phase === 'test'; }
@@ -87,12 +87,18 @@
   /* Einheitliche Liste für Ergebnisseite und PDF */
   function protocol() {
     return (S.log || []).filter(function (e) { return e.type === 'switch' || e.type === 'event'; }).map(function (e) {
+      if (e.type === 'event' && e.fs) {   // echtes Verlassen des Vollbilds, mit Dauer
+        var ms = e.back ? e.back - e.at : 0;
+        return { at: e.at, q: e.q, kind: e.kind, fsAway: ms,
+          text: 'Vollbild verlassen' + (e.back ? ' bis ' + clock(e.back) + ' (' + mmss(ms / 1000) + ' min)' : ' bis zur Abgabe') };
+      }
       if (e.type === 'event') return { at: e.at, q: e.q, kind: e.kind, text: e.text };
       var away = e.back ? ' bis ' + clock(e.back) + ' (' + mmss((e.back - e.at) / 1000) + ' min)' : ' bis zur Abgabe';
-      return { at: e.at, q: e.q, kind: 'switch', text: 'Testfenster verlassen' + away, away: e.back ? e.back - e.at : 0 };
+      return { at: e.at, q: e.q, kind: 'switch', text: 'Testfenster verlassen' + (e.via ? ' (vermutlich ' + e.via + ')' : '') + away, away: e.back ? e.back - e.at : 0 };
     });
   }
 
+  var keysLocked = false;   // Tastatursperre aktiv: Systemtasten erreichen nur die Seite
   function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function enterFs() {
     var d = document.documentElement, f = d.requestFullscreen || d.webkitRequestFullscreen;
@@ -107,9 +113,12 @@
   /* Tastatursperre (Chrome, Edge): Esc beendet das Vollbild erst nach langem Drücken,
      Windows-Taste, Alt+Tab und Strg+W gehen an die Seite statt ans System. */
   function lockKeys() {
-    try { if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock().catch(function () {}); } catch (e) { /* nicht verfügbar */ }
+    try {
+      if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock().then(function () { keysLocked = true; }, function () { keysLocked = false; });
+    } catch (e) { /* nicht verfügbar */ }
   }
   function unlockKeys() {
+    keysLocked = false;
     try { if (navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock(); } catch (e) { /* nicht verfügbar */ }
   }
   function leaveFs() {
@@ -127,9 +136,20 @@
   }
   function onFs() {
     if (!S || S.phase !== 'test') return;
-    if (M.fullscreen && S.fsOk && !isFs()) logE('screen', 'Vollbild verlassen');
+    if (M.fullscreen && S.fsOk && !isFs()) {
+      keysLocked = false;   // die Sperre gilt nur im Vollbild
+      if (logging() && !openFs() && S.log.length < 400) { S.log.push({ type: 'event', kind: 'screen', at: Date.now(), text: 'Vollbild verlassen', q: currentQ || null, fs: true }); save(); }
+    } else if (isFs()) {
+      var o = openFs();
+      if (o) { o.back = Date.now(); save(); }
+    }
     guard();
     setTimeout(baseline, 700);
+  }
+  /* noch offenes Verlassen des Vollbilds (auch über ein Neuladen hinweg) */
+  function openFs() {
+    for (var i = (S.log || []).length - 1; i >= 0; i--) { var e = S.log[i]; if (e.fs) return e.back ? null : e; }
+    return null;
   }
   function baseline() {
     B = { dw: window.outerWidth - window.innerWidth, dh: window.outerHeight - window.innerHeight, w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio };
@@ -198,9 +218,10 @@
       var b = d.brands.map(function (x) { return String(x.brand); });
       if (b.indexOf('Microsoft Edge') >= 0) return 'edge';
       if (b.indexOf('Google Chrome') >= 0) return 'chrome';
-      var eigen = b.filter(function (x) { return !/not.?a.?brand/i.test(x) && x !== 'Chromium'; });
+      var eigen = b.filter(function (x) { return !/not.?a.?brand/i.test(x) && x !== 'Chromium' && x !== 'HeadlessChrome'; });   // Headless = Chromium ohne Fenster (automatische Tests)
       return !eigen.length && b.indexOf('Chromium') >= 0 ? 'chromium' : 'andere';
     }
+    if (/HeadlessChrome\//.test(ua)) return 'chromium';
     if (/Firefox\//.test(ua)) return 'firefox';
     if (/Safari\//.test(ua) && !/Chrome\/|Chromium\//.test(ua)) return 'safari';
     return 'andere';
@@ -280,7 +301,7 @@
     var now = Date.now();
     S = { phase: 'test', first: f, last: l, cls: cls || '', code: code, startedAt: now, endsAt: now + M.minutes * 60000,
       order: order, opts: opts, answers: {}, blurs: 0, log: [], fsOk: !!fsOk, checks: {}, checked: {}, revealed: {}, browser: BROWSER_NAME[browser()] };
-    if (M.fullscreen && !fsOk) logE('screen', 'Vollbild war auf diesem Gerät nicht möglich');
+    if (M.fullscreen && !fsOk) logE('nofs', 'Vollbild war auf diesem Gerät nicht möglich');
     save();
     viewTest();
   }
@@ -487,6 +508,7 @@
         h('button', { class: 'btn klein', type: 'button', text: 'Abgeben', title: 'Beendet den Test. Du wirst vorher noch einmal gefragt.', onclick: askSubmit })
       ]), bar]);
     var alle = byOrder();
+    function skipsLeft() { return Math.max(0, (M.skips || 0) - (S.skipped || 0)); }
     function posten(q, i) {
       return h('section', { class: 'posten', 'data-nr': i + 1, 'aria-label': 'Frage ' + (i + 1) }, [
         h('div', { class: 'rand' }, [h('span', { class: 'nr', text: (i + 1) + '.' }),
@@ -502,19 +524,41 @@
       var i = Math.min(S.pos, alle.length - 1), letzte = i === alle.length - 1;
       blatt.append(posten(alle[i], i));
       currentQ = i + 1;
-      var weiter = h('button', { class: 'btn voll', type: 'button', id: 'weiter', text: letzte ? 'Test abgeben' : 'Weiter zur nächsten Frage', onclick: function () {
+      var mitSkip = (M.skips || 0) > 0, weiterText = mitSkip ? 'Frage einreichen' : 'Weiter zur nächsten Frage';
+      var weiter = h('button', { class: 'btn voll', type: 'button', id: 'weiter', text: letzte ? 'Test abgeben' : weiterText, onclick: function () {
         if (letzte) { askSubmit(); return; }
         if (!weiter.getAttribute('data-sicher')) {
           weiter.setAttribute('data-sicher', '1');
           weiter.textContent = C.isAnswered(alle[i], S.answers[alle[i].id]) ? 'Sicher? Zurück geht nicht mehr' : 'Frage noch offen – trotzdem weiter?';
-          setTimeout(function () { if (weiter.isConnected) { weiter.removeAttribute('data-sicher'); weiter.textContent = 'Weiter zur nächsten Frage'; } }, 4000);
+          setTimeout(function () { if (weiter.isConnected) { weiter.removeAttribute('data-sicher'); weiter.textContent = weiterText; } }, 4000);
           return;
         }
         S.pos = i + 1; save();
-        zeigeFrage(); updateCount(); refreshChecks(); Q.forEach(showCheck); Q.forEach(showReveal);
-        window.scrollTo(0, 0);
+        naechste();
       } });
-      fuss.append(h('span', { class: 'hinweis', text: letzte ? 'Letzte Frage. Danach gibst du ab.' : 'Frage ' + (i + 1) + ' von ' + alle.length + '. Mit „Weiter“ kommst du nicht mehr zurück.' }), weiter);
+      /* Überspringen: die Frage wandert ans Ende der Reihenfolge, die Antwort bleibt erhalten */
+      var rest = skipsLeft();
+      var skip = mitSkip && !letzte ? h('button', { class: 'btn', type: 'button', id: 'ueberspringen', disabled: rest < 1,
+        text: '(' + rest + ') Frage überspringen',
+        title: rest ? 'Stellt die Frage ans Ende. Du kannst noch ' + rest + '-mal überspringen.' : 'Du hast alle Überspringen verbraucht.',
+        onclick: function () {
+          if (skipsLeft() < 1) return;
+          var idx = S.order.splice(i, 1)[0];
+          S.order.push(idx);
+          S.skipped = (S.skipped || 0) + 1;
+          logE('skip', 'Frage ' + (i + 1) + ' ans Ende gestellt (jetzt Frage ' + S.order.length + '): ' + cut(Q[idx].prompt).slice(0, 50), i + 1);
+          save();
+          alle = byOrder();
+          naechste();
+        } }) : null;
+      fuss.append(h('span', { class: 'hinweis', text: letzte ? 'Letzte Frage. Danach gibst du ab.'
+        : 'Frage ' + (i + 1) + ' von ' + alle.length + '. Mit „' + weiterText + '“ kommst du nicht mehr zurück.'
+          + (mitSkip ? ' „Überspringen“ stellt die Frage ans Ende, deine Antwort bleibt.' : '') }),
+        h('div', { class: 'knoepfe' }, [skip, weiter]));
+    }
+    function naechste() {
+      zeigeFrage(); updateCount(); refreshChecks(); Q.forEach(showCheck); Q.forEach(showReveal);
+      window.scrollTo(0, 0);
     }
     if (M.single) zeigeFrage();
     else fuss.append(
@@ -889,7 +933,8 @@
       plog.forEach(function (e) { if (e.kind !== 'switch') counts[e.kind] = (counts[e.kind] || 0) + 1; });
       var sum = [];
       if (nSw) sum.push(['Fensterwechsel', nSw + ' (zusammen ' + mmss(away / 1000) + ' min außerhalb)']);
-      Object.keys(counts).forEach(function (k) { sum.push([KINDS[k] || k, String(counts[k])]); });
+      var fsAway = plog.reduce(function (t, e) { return t + (e.fsAway || 0); }, 0);
+      Object.keys(counts).forEach(function (k) { sum.push([KINDS[k] || k, String(counts[k]) + (k === 'screen' && fsAway ? ' (zusammen ' + mmss(fsAway / 1000) + ' min)' : '')]); });
       sum.forEach(function (r) {
         if (y + 5 > BOTTOM) page();
         font('bold', 9.5); doc.text(r[0], L, y); font('normal', 9.5); doc.text(r[1], L + 70, y); y += 4.8;
@@ -942,7 +987,8 @@
   /* ---------- Fensterwechsel ---------- */
   function noteLeave() {
     if (!logging() || leaving || openLeave || Date.now() < ignoreBlurUntil) return;
-    var entry = { type: 'switch', at: Date.now(), q: currentQ };
+    var entry = { type: 'switch', at: Date.now(), q: currentQ }, via = vermutlich();
+    if (via) entry.via = via;
     S.blurs = (S.blurs || 0) + 1; S.log.push(entry); openLeave = entry; save();
   }
   function noteBack() {
@@ -953,6 +999,22 @@
     if (lastReturn.away < 3000) lastReturn = null;
     openLeave = null; lastActive = now; save();
   }
+  /* Strg+Alt+Entf und Win+L erreichen die Seite nie, das System fängt sie vorher ab. Zu sehen ist nur,
+     welche Zusatztasten noch gedrückt waren, als das Fenster den Fokus verlor. */
+  var gehalten = {};
+  function haltTaste(e, an) {
+    var k = e.key === 'OS' ? 'Meta' : e.key;
+    if (k === 'Control' || k === 'Alt' || k === 'Meta') { if (an) gehalten[k] = Date.now(); else delete gehalten[k]; }
+  }
+  document.addEventListener('keydown', function (e) { haltTaste(e, true); }, true);
+  document.addEventListener('keyup', function (e) { haltTaste(e, false); }, true);
+  function vermutlich() {
+    var jetzt = Date.now(), frisch = function (k) { return gehalten[k] && jetzt - gehalten[k] < 5000; };
+    var v = frisch('Control') && frisch('Alt') ? 'Strg+Alt+Entf' : frisch('Meta') ? 'Win+L oder eine andere Windows-Tastenkombination' : '';
+    gehalten = {};
+    return v;
+  }
+
   /* Neu laden ist kein Fensterwechsel */
   var leaving = false;
   window.addEventListener('beforeunload', function () {
@@ -1034,14 +1096,18 @@
     if (!name) return;
     var weg = /Esc|Windows-Taste|Desktop|Taskansicht|Alt\+|Tab|Fenster/.test(name);   // Tasten, die aus dem Test führen
     if (locked() || (weg && M.fullscreen && isFs())) e.preventDefault();
-    logE(weg ? 'screen' : 'key', name, qnr(e.target));
+    /* Mit Tastatursperre bleibt die Seite im Vollbild: nur ein Versuch. Ob das Vollbild oder Fenster
+       wirklich verlassen wurde, halten Vollbild- und Fensterwechsel-Einträge mit Uhrzeit und Dauer fest. */
+    var gesperrt = weg && keysLocked && isFs();
+    logE(gesperrt ? 'tried' : 'key', name + (gesperrt ? ' – versucht, gesperrt' : ''), qnr(e.target));
   }, true);
   document.addEventListener('keyup', function (e) {
     if (e.key === 'PrintScreen') logE('key', 'Druck-Taste (Bildschirmfoto)');
     if ((e.key === 'Meta' || e.key === 'OS') && winAllein && S && S.phase === 'test') {
       winAllein = false;
       if (M.fullscreen && isFs()) e.preventDefault();
-      logE('screen', 'Windows-Taste (Startmenü)');
+      var gesperrt = keysLocked && isFs();
+      logE(gesperrt ? 'tried' : 'key', 'Windows-Taste (Startmenü)' + (gesperrt ? ' – versucht, gesperrt' : ''));
     }
   }, true);
 

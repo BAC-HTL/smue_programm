@@ -45,7 +45,7 @@
 
   function emptyDraft() {
     return { sample: false, title: '', subject: '', cls: '', teacher: '', minutes: 20, startCode: '', pin: pin(),
-      shuffleQ: false, shuffleO: true, showSolutions: true, logBlur: true, fullscreen: true, lock: true, pruefAn: false, pruefArt: 'gesamt', pruefZahl: 2, reveal: false, selfRestart: false, single: false, scoreOnly: false, browserCheck: true, pdfMode: 'voll',
+      shuffleQ: false, shuffleO: true, showSolutions: true, logBlur: true, fullscreen: true, lock: true, pruefAn: false, pruefArt: 'gesamt', pruefZahl: 2, reveal: false, selfRestart: false, single: false, skipZahl: 2, scoreOnly: false, browserCheck: true, pdfMode: 'voll',
       grading: { on: false, thresholds: [88, 75, 63, 50] }, questions: [] };
   }
   function sampleDraft() {
@@ -182,7 +182,8 @@
         field('minuten', 'Zeit in Minuten', h('input', { type: 'number', id: 'minuten', min: 1, max: 600, value: D.minutes, oninput: function (e) { D.minutes = Number(e.target.value); persist(); } }))]),
       h('section', { class: 'blatt tafel' }, [h('h2', { text: 'Ablauf' }),
         bindCheck('misch-fragen', D, 'shuffleQ', 'Fragen mischen'),
-        bindCheck('einzeln', D, 'single', 'Eine Frage pro Seite, kein Zurück'),
+        bindCheck('einzeln', D, 'single', 'Eine Frage pro Seite, kein Zurück', renderSettings),
+        D.single ? field('ueberspringen', 'Wie oft Fragen überspringen (ans Ende stellen)', h('input', { type: 'number', id: 'ueberspringen', min: 0, max: 99, step: 1, value: D.skipZahl, oninput: function (e) { D.skipZahl = Number(e.target.value); persist(); } })) : null,
         bindCheck('misch-optionen', D, 'shuffleO', 'Antwortmöglichkeiten mischen'),
         bindCheck('loesungen', D, 'showSolutions', 'Richtige Lösungen nach der Abgabe zeigen'),
         bindCheck('nurpunkte', D, 'scoreOnly', 'Nach der Abgabe nur die Punkte zeigen'),
@@ -435,6 +436,7 @@
     if (!D.title.trim()) g.push('Gib dem Test einen Titel.');
     if (!(D.minutes >= 1 && D.minutes <= 600)) g.push('Die Zeit muss zwischen 1 und 600 Minuten liegen.');
     if (!String(D.pin || '').trim()) g.push('Lege eine Lehrer-PIN fest.');
+    if (D.single && !(Number.isInteger(D.skipZahl) && D.skipZahl >= 0 && D.skipZahl <= 99)) g.push('Die Anzahl fürs Überspringen muss eine ganze Zahl von 0 bis 99 sein.');
     if (D.pruefAn && !(Number.isInteger(D.pruefZahl) && D.pruefZahl >= 1 && D.pruefZahl <= 99)) g.push('Die Anzahl der Prüfungen muss eine ganze Zahl von 1 bis 99 sein.');
     if (!D.questions.length) g.push('Lege mindestens eine Frage an.');
     if (D.grading.on) {
@@ -497,7 +499,7 @@
       needCode: !!code, pinHash: C.hash(id + ':' + String(D.pin).trim()), preview: !!preview,
       shuffleQ: D.shuffleQ, shuffleO: D.shuffleO, showSolutions: D.showSolutions, logBlur: D.logBlur,
       fullscreen: !preview && !!D.fullscreen, lock: !!D.lock,
-      reveal: !!D.reveal, selfRestart: !!D.selfRestart, single: !!D.single, scoreOnly: !!D.scoreOnly, browserCheck: !!D.browserCheck, pdfMode: D.pdfMode,
+      reveal: !!D.reveal, selfRestart: !!D.selfRestart, single: !!D.single, skips: D.single ? D.skipZahl : 0, scoreOnly: !!D.scoreOnly, browserCheck: !!D.browserCheck, pdfMode: D.pdfMode,
       checks: D.pruefAn ? { mode: D.pruefArt === 'frage' ? 'frage' : 'gesamt', n: D.pruefZahl } : null,
       grading: D.grading.on ? D.grading : null
     };
@@ -562,7 +564,7 @@
     var built = buildStudent(false), kname = name.replace(/\.html$/, '_Kontrolle.json');
     saveFile(name, built.html, 'text/html').then(function (ok) {
       if (!ok) { toast('Die Schüler-Datei wurde nicht gespeichert.'); return false; }
-      return new Promise(function (res) { setTimeout(res, 500); }).then(function () { return saveFile(kname, JSON.stringify(built.kontrolle), 'application/json'); }).then(function (k) { return k ? 'ok' : 'ohne'; });
+      return new Promise(function (res) { setTimeout(res, 500); }).then(function () { return saveFile(kname, JSON.stringify(built.kontrolle, null, 2), 'application/json'); }).then(function (k) { return k ? 'ok' : 'ohne'; });
     }).then(function (ok) {
       if (!ok) return;
       var code = String(D.startCode || '').trim();
@@ -678,8 +680,8 @@
           h('td', { text: r.earned === null ? '–' : C.fmt(r.earned) + ' von ' + C.fmt(r.max) }),
           h('td', { text: r.note ? String(r.note.nr) : '–' }),
           h('td', {}, [h('b', { class: 'status ' + r.status, text: LABEL[r.status] })].concat(notes.map(function (t) { return h('div', { class: 'hinweis', text: t }); }))),
-          h('td', {}, r.fragen ? [h('details', {}, [h('summary', { text: r.fragen.length + ' Fragen' }), fragenTabelle(r)])] : [h('span', { text: '–' })]),
-          h('td', {}, r.log.length ? [h('details', {}, [h('summary', { text: r.log.length + (r.log.length === 1 ? ' Eintrag' : ' Einträge') }),
+          h('td', {}, r.fragen ? [h('details', { class: 'antworten' }, [h('summary', { text: r.fragen.length + ' Fragen' }), fragenTabelle(r)])] : [h('span', { text: '–' })]),
+          h('td', {}, r.log.length ? [h('details', { class: 'protokoll' }, [h('summary', { text: r.log.length + (r.log.length === 1 ? ' Eintrag' : ' Einträge') }),
             h('ul', {}, r.log.map(function (e) { return h('li', { text: logText(e) }); }))])] : [h('span', { text: 'keine' })])]);
       }))])]));
   }
