@@ -28,6 +28,23 @@ module.exports = async function () {
   await fall('GW-T06', 'Antwort mit 10.000 Zeichen', 0, () => e(text(['Wien']), 'x'.repeat(10000)));
   await fall('GW-T07', 'Antwort mit genau 1 Zeichen', 1, () => e(text(['A']), 'a'));
 
+  klasse('T1b Lösung mit Typ (bin:, hex:, dez:, bytes:)');
+  const tab = (sols) => ({ type: 'table', points: sols.length, table: { head: ['A'], rows: sols.map(s => [{ t: s, fill: true }]) } });
+  await fall('ÄK-TY01', 'bin: führende Null und Leerzeichen sind egal', 1, () => e(text(['bin:1001000']), '0100 1000'));
+  await fall('ÄK-TY02', 'bin: 0b-Präfix und tiefgestellte 2', 2, () => e(tab(['bin:1001000', 'bin:1001000']), ['0b1001000', '1001000₂']));
+  await fall('ÄK-TY03', 'bin: anderer Wert ist falsch', 0, () => e(text(['bin:1001000']), '1001001'));
+  await fall('GW-TY01', 'bin7: 6 Stellen sind zu wenig', 0, () => e(text(['bin7:0100101']), '100101'));
+  await fall('GW-TY02', 'bin7: 7 und 8 Stellen gelten', 2, () => e(tab(['bin7:0100101', 'bin7:0100101']), ['010 0101', '0010 0101']));
+  await fall('ÄK-TY04', 'hex: U+, 0x, h und Kleinschreibung', 4, () => e(tab(['hex:U+2605', 'hex:U+2605', 'hex:U+2605', 'hex:U+2605']), ['u+02605', '0x2605', '2605h', '26 05']));
+  await fall('ÄK-TY05', 'hex: Bitmuster mit 16 Stellen gilt', 1, () => e(text(['hex:U+2605']), '0010 0110 0000 0101'));
+  await fall('ÄK-TY06', 'hex: UTF-8-Bytes statt Codepunkt sind falsch', 0, () => e(text(['hex:U+2605']), '1110 0010 10 011000 10 000101'));
+  await fall('ÄK-TY07', 'dez: mit Einheit und als Hex', 2, () => e(tab(['dez:104', 'dez:104']), ['104 Byte', '0x68']));
+  await fall('GW-TY03', 'dez: Bitmuster mit 7 Stellen zählt als Dezimalzahl, also falsch', 0, () => e(text(['dez:104']), '1101000'));
+  await fall('ÄK-TY08', 'bytes: hex ohne Leerzeichen, mit 0x und binär', 3, () => e(tab(['bytes:E2 86 92', 'bytes:E2 86 92', 'bytes:E2 86 92']), ['E28692', '0xE2 0x86 0x92', '1110 0010 1000 0110 1001 0010']));
+  await fall('GW-TY04', 'bytes: führendes Null-Byte ist ein anderes Ergebnis', 0, () => e(text(['bytes:E2 86 92']), '00 E2 86 92'));
+  await fall('ÄK-TY09', 'Anzeige der Lösung ohne Typ', 'U+2605 | 1001000', () => C.grade(tab(['hex:U+2605', 'bin7:1001000']), []).solution);
+  await fall('ÄK-TY10', 'Text ohne Typ bleibt Textvergleich', 0, () => e(text(['1001000']), '0100 1000'));
+
   klasse('T2 Zahlen');
   await fall('ÄK-Z01', 'Gültig: ganze Zahl', 1, () => e(zahl('9'), '9'));
   await fall('ÄK-Z02', 'Gültig: Komma statt Punkt', 1, () => e(zahl('3.5'), '3,5'));

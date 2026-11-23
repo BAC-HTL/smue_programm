@@ -760,7 +760,7 @@
         if (!cell.fill) return { t: cell.t };
         var i = k++, acc = String(cell.t || '').split('|').map(function (x) { return x.trim(); }).filter(Boolean);
         var given = String(ans[i] || '').trim(), ok = C.textMatches(given, acc, q);
-        return { t: given || '–', ok: ok, fill: true, sol: ok ? '' : acc.join(' / ') };
+        return { t: given || '–', ok: ok, fill: true, sol: ok ? '' : acc.map(C.showSolution).join(' / ') };
       });
     });
   }

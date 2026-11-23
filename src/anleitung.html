@@ -13,7 +13,7 @@
       <li><b>Fragen anlegen.</b> Wähle unten „Frage hinzufügen“. Es gibt beliebig viele Fragen. Jede bekommt eine Fragenart, Punkte und die richtige Lösung.</li>
       <li><b>Ablauf festlegen.</b> Lege fest, ob gemischt wird, ob Schüler eine Frage pro Seite sehen, was sie nach der Abgabe sehen und ob Vollbild, Sperre und Protokoll gelten. Notiere dir die Lehrer-PIN.</li>
       <li><b>Prüfen.</b> Öffne die Vorschau und spiele den Test einmal durch.</li>
-      <li><b>Erzeugen.</b> Klicke auf „Schüler-Datei erzeugen“. Es werden zwei Dateien gespeichert: die Schüler-Datei (<code>.html</code>, für die Schüler) und die Kontrolldatei (<code>_Kontrolle.json</code>, nur für dich). Der Browser fragt eventuell nach, ob er zwei Dateien speichern darf. Erlaube das.</li>
+      <li><b>Erzeugen.</b> Klicke auf „Schüler-Datei erzeugen“. Es werden zwei Dateien gespeichert: die Schüler-Datei (<code>.html</code>, für die Schüler) und die Kontrolldatei (<code>_Kontrolle.json</code>, nur für dich). Der Browser fragt eventuell nach, ob er zwei Dateien speichern darf. Erlaube das. Hast du den Entwurf mit „Entwurf laden“ geöffnet oder gespeichert, landen in Chrome und Edge beide Dateien im Ordner des Entwurfs. Beim ersten Mal bestätigst du den Ordner einmal. Sonst landen sie im Download-Ordner. Vorhandene Dateien werden nie überschrieben, eine neue Fassung bekommt <code>_2</code>, <code>_3</code> …</li>
     </ol>
     <div class="tabelle"><table>
       <thead><tr><th>Datei</th><th>Wer bekommt sie?</th><th>Wofür?</th></tr></thead>
@@ -55,6 +55,35 @@
         <tr><td><code>Wien liegt an der {Donau|~Inn|~Mur}.</code></td><td>eine Auswahlliste, nur Donau ist richtig</td></tr>
       </tbody>
     </table></div>
+
+    <h3>Zahlen in Binär und Hex: Lösung mit Typ</h3>
+    <p>Bei Kurzantwort, Lücke und Tabellenzelle vergleicht das Programm sonst den Text. Schreibst du einen Typ vor die Lösung, zählt der Wert. Schreibweisen wie Leerzeichen, führende Nullen oder <code>0x</code> sind dann egal. Schüler sehen nur den Teil nach dem Doppelpunkt.</p>
+    <div class="tabelle"><table>
+      <thead><tr><th>Du schreibst</th><th>Richtig ist zum Beispiel</th></tr></thead>
+      <tbody>
+        <tr><td><code>bin:1001000</code></td><td><code>100 1000</code>, <code>0100 1000</code>, <code>0b1001000</code>, <code>1001000₂</code></td></tr>
+        <tr><td><code>bin7:1001000</code></td><td>wie <code>bin:</code>, aber mit mindestens 7 Stellen</td></tr>
+        <tr><td><code>hex:U+2605</code></td><td><code>2605</code>, <code>U+02605</code>, <code>0x2605</code>, <code>2605h</code>, auch binär <code>0010 0110 0000 0101</code></td></tr>
+        <tr><td><code>dez:104</code></td><td><code>104</code>, <code>104 Byte</code>, <code>0x68</code>, <code>01101000</code></td></tr>
+        <tr><td><code>bytes:E2 86 92</code></td><td><code>E28692</code>, <code>0xE2 0x86 0x92</code>, <code>11100010 10000110 10010010</code>. Die Zahl der Bytes muss stimmen.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Ein Bitmuster ohne <code>0b</code> zählt bei <code>hex:</code> und <code>dez:</code> erst ab 8 Stellen als binär. Sonst wäre <code>10</code> mehrdeutig.</p>
+    <p>Wo du den Typ schreibst:</p>
+    <ul>
+      <li><b>Kurzantwort:</b> in eine Zeile unter „Richtige Antworten“, zum Beispiel <code>hex:U+2605</code>.</li>
+      <li><b>Lückentext:</b> in die Klammer, zum Beispiel <code>{dez:27}</code>.</li>
+      <li><b>Tabelle:</b> in die gelbe Zelle, zum Beispiel <code>bin7:1001000</code>.</li>
+      <li>Typ und Text lassen sich mischen. In Lücke und Tabelle mit <code>|</code>: <code>dez:3|drei</code> lässt den Wert 3 und das Wort „drei“ gelten. Bei der Kurzantwort schreibst du beides in eigene Zeilen.</li>
+    </ul>
+    <p>Wann welcher Typ:</p>
+    <ul>
+      <li><b>Ein Zahlenwert</b> (Nutzbits, Codepunkt, Datenbits, Anzahl): <code>bin:</code>, <code>hex:</code> oder <code>dez:</code>. Führende Nullen sind egal, <code>0000 0000 0011 1000</code> ist bei <code>bin:111000</code> richtig.</li>
+      <li><b>Eine Folge von Bytes</b> (zum Beispiel UTF-8): <code>bytes:</code>. Hier zählt jedes Byte, auch ein führendes <code>00</code>, denn <code>00 E2 86 92</code> ist eine andere Folge als <code>E2 86 92</code>.</li>
+      <li>Bei <code>bytes:</code> gilt eine Eingabe nur als binär, wenn sie 8, 16, 24 … Bit hat. Alles andere wird als hex gelesen: <code>bytes:111000</code> bedeutet die drei Bytes <code>11 10 00</code>. Für ein Bitmuster nimm deshalb <code>bin:</code>.</li>
+      <li><code>bin7:</code>, <code>bin8:</code> … verlangen mindestens so viele Stellen. Mit <code>bin7:1001000</code> ist <code>1001000</code> und <code>0100 1000</code> richtig, <code>10010</code> nicht.</li>
+    </ul>
+    <p>Probier neue Lösungen in der Vorschau aus, bevor du die Schüler-Datei erzeugst.</p>
 
     <h3>Tabelle ausfüllen, zum Beispiel eine Wahrheitstabelle</h3>
     <ol>
@@ -209,7 +238,7 @@
         <tr><td>auffällig</td><td>Die Datei ist unverändert, aber die Bearbeitungszeit liegt über der erlaubten Zeit.</td></tr>
         <tr><td>verändert</td><td>PDF, Prüfdaten, Punkte oder Schüler-Datei wurden verändert.</td></tr>
         <tr><td>nicht prüfbar</td><td>Das PDF hat keine Prüfdaten, zum Beispiel weil es neu gespeichert oder ausgedruckt wurde. Lass es dir im Original geben.</td></tr>
-        <tr><td>anderer Test</td><td>Das PDF gehört nicht zu dieser Kontrolldatei.</td></tr>
+        <tr><td>anderer Test</td><td>Das PDF gehört nicht zu dieser Kontrolldatei. Stammt es aus demselben Entwurf (Vorschau oder früher erzeugte Schüler-Datei), stehen Antworten und Punkte trotzdem unter „Antworten“, bewertet mit den Lösungen dieser Kontrolldatei. Das ist nur zur Ansicht: Echtheit ist nicht geprüft, eine Note gibt es nicht.</td></tr>
       </tbody>
     </table></div>
     <p>Wichtig: Veränderungen werden erkannt, aber nicht verhindert. Der Schlüssel muss auf dem Gerät der Schüler liegen, weil der Test ohne Internet läuft. Wer sehr gute Kenntnisse hat, könnte ihn auslesen. Lass die Schüler ihr PDF deshalb möglichst gleich nach der Abgabe hochladen.</p>
@@ -217,6 +246,7 @@
     <h3>Gut zu wissen</h3>
     <ul>
       <li>Der Entwurf wird automatisch in diesem Browser gespeichert. Sichere wichtige Tests zusätzlich mit „Entwurf speichern“.</li>
+      <li>In Chrome und Edge merkt sich das Programm die geladene oder gespeicherte Entwurfsdatei. „Entwurf speichern“ überschreibt sie dann ohne Nachfrage. Gibt es noch keine Datei oder hast du den Titel geändert, öffnet sich der Speichern-Dialog im Ordner der bisherigen Datei. „Neu“ vergisst die Datei.</li>
       <li>Das Programm gibt es online und als Datei <code>Smue-Programm.html</code>. Die Datei läuft ohne Internet. Die Online-Version braucht eine Verbindung.</li>
       <li>Neu laden schadet nicht: Antworten und Zeit bleiben erhalten.</li>
       <li>Die Zahl 1.234 zählt als 1234 und als 1,234. Eine Antwort ist richtig, wenn eine der beiden Lesarten passt.</li>

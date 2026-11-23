@@ -464,7 +464,7 @@
         var cells = C.tableGaps(q), ch = C.tableChoices(q);
         if (!cells.length) e.push('Markiere mindestens eine Zelle zum Ausfüllen.');
         if (cells.some(function (g) { return !g.acc.length; })) e.push('Trag in jede gelbe Zelle die Lösung ein.');
-        else if (ch.length && cells.some(function (g) { return !g.acc.some(function (x) { return C.textMatches(x, ch, q); }); })) e.push('Jede Lösung muss in der Auswahl für Schüler vorkommen.');
+        else if (ch.length && cells.some(function (g) { return !g.acc.some(function (x) { return ch.some(function (c) { return C.textMatches(c, [x], q); }); }); })) e.push('Jede Lösung muss in der Auswahl für Schüler vorkommen.');
       }
       if (q.type === 'cloze' && q.prompt.trim() && !C.gapsOf(q).length) e.push('Setze mindestens eine Lücke in {geschwungene Klammern}.');
       if (q.type === 'cloze' && C.gapsOf(q).some(function (x) { return !x.gap.length; })) e.push('Jede Lücke braucht eine richtige Antwort ohne ~.');
@@ -558,18 +558,56 @@
     return false;
   }
 
+  /* Ziel für Schüler-Datei und Kontrolldatei: der Ordner des geöffneten Entwurfs (Chrome/Edge), sonst der Download-Ordner.
+     Den Ordner bestätigt man einmal im Ordner-Dialog, der im Ordner des Entwurfs startet; danach merkt sich das Programm ihn. */
+  function zielOrdner() {
+    if (!fsApi() || !window.showDirectoryPicker || !ENTWURF || !ENTWURF.handle) return Promise.resolve(null);
+    var alt = ENTWURF.dir ? permitted(ENTWURF.dir).then(function (ok) { return ok ? ENTWURF.dir : null; }) : Promise.resolve(null);
+    return alt.then(function (dir) {
+      if (dir) return dir;
+      return window.showDirectoryPicker({ mode: 'readwrite', startIn: ENTWURF.handle }).then(function (neu) {
+        ENTWURF.dir = neu; merkeEntwurf(ENTWURF); return neu;
+      });
+    });
+  }
+  function gibtEs(dir, name) { return dir.getFileHandle(name).then(function () { return true; }, function () { return false; }); }
+  /* Nie überschreiben: Eine ersetzte Kontrolldatei macht die Abgaben zur alten Schüler-Datei unprüfbar. Belegt → _2, _3 … für beide Dateien. */
+  function freierName(dir, basis, n) {
+    var b = basis + (n > 1 ? '_' + n : '');
+    return Promise.all([gibtEs(dir, b + '.html'), gibtEs(dir, b + '_Kontrolle.json')]).then(function (x) {
+      return x[0] || x[1] ? freierName(dir, basis, n + 1) : b;
+    });
+  }
+  function inOrdner(dir, name, text) {
+    return dir.getFileHandle(name, { create: true }).then(function (fh) { return writeHandle(fh, text); });
+  }
   function generate() {
     if (!check()) return;
-    var name = 'Smue_' + slug(D.title) + (D.cls.trim() ? '_' + slug(D.cls) : '') + '.html';
-    var built = buildStudent(false), kname = name.replace(/\.html$/, '_Kontrolle.json');
-    saveFile(name, built.html, 'text/html').then(function (ok) {
-      if (!ok) { toast('Die Schüler-Datei wurde nicht gespeichert.'); return false; }
-      return new Promise(function (res) { setTimeout(res, 500); }).then(function () { return saveFile(kname, JSON.stringify(built.kontrolle, null, 2), 'application/json'); }).then(function (k) { return k ? 'ok' : 'ohne'; });
+    var basis = 'Smue_' + slug(D.title) + (D.cls.trim() ? '_' + slug(D.cls) : '');
+    var built = buildStudent(false), name = basis + '.html', kname = basis + '_Kontrolle.json', ordner = '';
+    var kText = JSON.stringify(built.kontrolle, null, 2);
+    var download = function () {
+      return saveFile(name, built.html, 'text/html').then(function (ok) {
+        if (!ok) { toast('Die Schüler-Datei wurde nicht gespeichert.'); return false; }
+        return new Promise(function (res) { setTimeout(res, 500); }).then(function () { return saveFile(kname, kText, 'application/json'); }).then(function (k) { return k ? 'ok' : 'ohne'; });
+      });
+    };
+    zielOrdner().then(function (dir) {
+      if (!dir) return download();
+      return freierName(dir, basis, 1).then(function (b) {
+        name = b + '.html'; kname = b + '_Kontrolle.json'; ordner = dir.name;
+        return inOrdner(dir, name, built.html).then(function () {
+          return inOrdner(dir, kname, kText).then(function () { return 'ok'; }, function () { return 'ohne'; });
+        });
+      }).catch(function () { ordner = ''; return download(); });
+    }, function (err) {
+      if (err && err.name === 'AbortError') { toast('Abgebrochen, es wurde nichts gespeichert.'); return false; }
+      return download();
     }).then(function (ok) {
       if (!ok) return;
       var code = String(D.startCode || '').trim();
       dialog('Schüler-Datei gespeichert', [
-        h('p', { text: name }),
+        h('p', { text: (ordner ? 'Ordner „' + ordner + '“: ' : 'Download-Ordner: ') + name }),
         h('div', { class: 'codes' }, [
           h('span', { text: 'Startcode' }), h('b', { text: code || 'keiner' }),
           h('span', { text: 'Lehrer-PIN' }), h('b', { text: String(D.pin).trim() })]),
@@ -603,14 +641,70 @@
       h('button', { class: 'btn still', type: 'button', text: 'Schließen', onclick: closeDialog })]);
   }
 
-  function exportDraft() {
+  /* Entwurfsdatei: In Chrome und Edge merkt sich das Programm die geladene oder gespeicherte Datei (FileSystemFileHandle, in IndexedDB).
+     „Entwurf speichern“ überschreibt sie dann direkt. Ohne Datei oder mit geändertem Titel öffnet sich der Speichern-Dialog,
+     im Ordner der bisherigen Datei. Andere Browser und die eingebettete Version laden weiter über ein Dateifeld und speichern als Download. */
+  var JSON_TYP = [{ description: 'Smü-Entwurf', accept: { 'application/json': ['.json'] } }];
+  var ENTWURF = null; // { handle, title }
+  function fsApi() {
+    var eingebettet = false;
+    try { eingebettet = window.top !== window.self; } catch (e) { eingebettet = true; }
+    return !!(window.showOpenFilePicker && window.showSaveFilePicker && !eingebettet);
+  }
+  function merkeEntwurf(e) {
+    ENTWURF = e;
+    docsDb('readwrite', function (s) { if (e) s.put(e, 'entwurf'); else s.delete('entwurf'); }).catch(function () { /* nur im Speicher */ });
+  }
+  function draftText() {
     var out = JSON.parse(JSON.stringify(D));
     if (DOCS.length) out.docs = DOCS;
-    saveFile('Smue-Entwurf_' + slug(D.title) + '.json', JSON.stringify(out, null, 2), 'application/json').then(function (ok) {
-      if (ok) toast('Entwurf gespeichert.');
+    return JSON.stringify(out, null, 2);
+  }
+  function draftName() { return 'Smue-Entwurf_' + slug(D.title) + '.json'; }
+  function writeHandle(handle, text) {
+    return handle.createWritable().then(function (w) { return w.write(text).then(function () { return w.close(); }); });
+  }
+  function permitted(handle) {
+    var o = { mode: 'readwrite' };
+    if (!handle.queryPermission) return Promise.resolve(true);
+    return handle.queryPermission(o).then(function (p) { return p === 'granted' || handle.requestPermission(o).then(function (q) { return q === 'granted'; }); })
+      .catch(function () { return false; });
+  }
+  function saveAs(text) {
+    var opt = { suggestedName: draftName(), types: JSON_TYP };
+    if (ENTWURF && ENTWURF.handle) opt.startIn = ENTWURF.handle; else opt.id = 'smue-entwurf';
+    return window.showSaveFilePicker(opt).then(function (handle) {
+      return writeHandle(handle, text).then(function () { merkeEntwurf({ handle: handle, title: D.title }); return handle.name; });
     });
   }
-  function importDraft(file) {
+  function exportDraft() {
+    var text = draftText();
+    if (!fsApi()) {
+      saveFile(draftName(), text, 'application/json').then(function (ok) { if (ok) toast('Entwurf gespeichert.'); });
+      return;
+    }
+    var e = ENTWURF, gleich = e && e.handle && e.title === D.title;
+    (gleich ? permitted(e.handle).then(function (ok) {
+      if (!ok) return saveAs(text);
+      // Datei verschoben oder gelöscht: dann doch der Dialog
+      return writeHandle(e.handle, text).then(function () { return e.handle.name; }, function () { return saveAs(text); });
+    }) : saveAs(text)).then(function (name) {
+      toast('Entwurf gespeichert: ' + name);
+    }, function (err) {
+      if (err && err.name === 'AbortError') return;
+      toast('Der Entwurf wurde nicht gespeichert.');
+    });
+  }
+  function loadDraft() {
+    if (!fsApi()) { fileInput.click(); return; }
+    var opt = { types: JSON_TYP, excludeAcceptAllOption: false };
+    if (ENTWURF && ENTWURF.handle) opt.startIn = ENTWURF.handle; else opt.id = 'smue-entwurf';
+    window.showOpenFilePicker(opt).then(function (a) {
+      var handle = a[0];
+      return handle.getFile().then(function (f) { importDraft(f, handle); });
+    }, function (err) { if (!err || err.name !== 'AbortError') fileInput.click(); });
+  }
+  function importDraft(file, handle) {
     var rd = new FileReader();
     rd.onload = function () {
       try {
@@ -618,7 +712,8 @@
         if (!d) throw new Error('form');
         DOCS = cleanDocs(raw.docs); saveDocs();
         d.sample = false; D = d; problems = {}; persist(); renderSettings(); renderQuestions();
-        toast('Entwurf geladen.');
+        merkeEntwurf(handle ? { handle: handle, title: D.title } : null);
+        toast('Entwurf geladen' + (handle ? ': ' + handle.name : '.'));
       } catch (e) { toast('Diese Datei ist kein Smü-Entwurf.'); }
     };
     rd.readAsText(file);
@@ -627,7 +722,7 @@
     dialog('Neuen Test beginnen?', [h('p', { text: D.sample ? 'Der Beispiel-Test wird geleert.' : 'Der aktuelle Entwurf wird geleert. Speichere ihn vorher, wenn du ihn noch brauchst.' })], [
       h('button', { class: 'btn', type: 'button', text: 'Abbrechen', onclick: closeDialog }),
       h('button', { class: 'btn voll', type: 'button', id: 'wirklich-neu', text: 'Leeren', onclick: function () {
-        D = emptyDraft(); DOCS = []; saveDocs(); problems = {}; persist(); renderSettings(); renderQuestions(); closeDialog();
+        D = emptyDraft(); DOCS = []; saveDocs(); merkeEntwurf(null); problems = {}; persist(); renderSettings(); renderQuestions(); closeDialog();
         var t = document.getElementById('titel'); if (t) t.focus();
       } })]);
   }
@@ -758,7 +853,7 @@
   document.getElementById('knopf-neu').addEventListener('click', startNew);
   document.getElementById('knopf-beispiel-neu').addEventListener('click', startNew);
   var fileInput = document.getElementById('datei-laden');
-  document.getElementById('knopf-laden').addEventListener('click', function () { fileInput.click(); });
+  document.getElementById('knopf-laden').addEventListener('click', loadDraft);
   fileInput.addEventListener('change', function () { if (fileInput.files[0]) importDraft(fileInput.files[0]); fileInput.value = ''; });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDialog(); var v = document.getElementById('vorschau'); if (v) v.remove(); } });
 
@@ -777,6 +872,7 @@
     pdfInput.value = '';
   });
   docsDb('readonly', function (s) { return s.get('docs'); }).then(function (a) { DOCS = cleanDocs(a); if (DOCS.length) renderSettings(); }, function () {});
+  docsDb('readonly', function (s) { return s.get('entwurf'); }).then(function (e) { if (e && e.handle && typeof e.handle.createWritable === 'function') ENTWURF = e; }, function () {});
 
   renderSettings(); renderAdd(); renderQuestions();
   window.SMU_HILFE.init();
