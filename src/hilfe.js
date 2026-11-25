@@ -61,6 +61,8 @@
     [/-zeilen$/, 'Anzahl der Zeilen ohne Überschrift, 1 bis 32. Beim Verkleinern gehen die Inhalte der entfernten Zeilen verloren.'],
     [/-wt-n$/, 'Erzeugt eine vollständige Wahrheitstabelle mit allen Kombinationen aus 0 und 1. Die Ergebnis-Spalte füllen Schüler aus. Die bisherige Tabelle wird ersetzt.'],
     [/-wt$/, 'Ersetzt die Tabelle durch eine Wahrheitstabelle. Danach trägst du in der gelben Spalte die Lösungen ein.'],
+    [/-typ$/, 'Text vergleicht die Schreibweise. bin, hex und dez vergleichen den Zahlenwert, führende Nullen und 0x sind egal. bytes prüft eine Bytefolge, zum Beispiel UTF-8.'],
+    [/-stellen$/, 'Nur bei bin: So viele Stellen muss die Antwort mindestens haben, zum Beispiel 7 für 7 Datenbits. Leer heißt beliebig.'],
     [/-auswahl$/, 'Zum Beispiel 0, 1 oder W, F. Schüler wählen dann in jeder Zelle aus dieser Liste, statt zu tippen. Jede Lösung muss darin vorkommen.'],
     [/^neu-/, 'Fügt am Ende eine neue Frage dieser Art hinzu.']
   ];

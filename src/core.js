@@ -89,6 +89,38 @@
     });
   }
 
+  /* Für den Editor: Ist eine Lösung mit Typ gültig, und welche Schreibweisen gelten als richtig? */
+  function gruppe(s, n) { var out = []; for (var i = s.length; i > 0; i -= n) out.unshift(s.slice(Math.max(0, i - n), i)); return out.join(' '); }
+  function loesungInfo(acc) {
+    var t = typed(acc);
+    if (!t) return null;
+    var r = { art: t.art, breite: t.breite, fehler: '', warnung: '', gilt: [] }, z = zerlege(t.wert, t.art);
+    if (!z.d) { r.fehler = 'Nach dem Doppelpunkt fehlt der Wert.'; return r; }
+    if (t.art === 'bytes') {
+      var hx = bytesLesarten(z)[0];
+      if (!hx) { r.fehler = 'Keine ganzen Bytes: hex mit 2 Stellen je Byte (E2 86 92) oder binär mit 8 Bit je Byte.'; return r; }
+      if (z.base !== 16 && /^[01]+$/.test(z.d) && z.d.length % 8) r.warnung = 'Wird als hex gelesen: ' + gruppe(hx.toUpperCase(), 2) + '. Für ein Bitmuster nimm bin:.';
+      var bin = zuBin(hx, 16);
+      r.gilt = [gruppe(hx.toUpperCase(), 2), hx.toUpperCase(), gruppe(bin, 8)];
+      return r;
+    }
+    var b = zuBin(z.d, z.base || BASIS[t.art]);
+    if (b === null) {
+      r.fehler = { bin: 'Binär sind nur 0 und 1 erlaubt.', hex: 'Hex sind nur 0–9 und A–F erlaubt.', dez: 'Dezimal sind nur die Ziffern 0–9 erlaubt.' }[t.art];
+      return r;
+    }
+    b = ohneNull(b);
+    var voll = b.length < t.breite ? ('0'.repeat(t.breite) + b).slice(-t.breite) : b,
+      h4 = ('000' + b).slice(-Math.ceil(b.length / 4) * 4), hx2 = binHex(h4).replace(/^0+(?=.)/, '').toUpperCase();
+    var nibbles = gruppe(('000' + voll).slice(-Math.ceil(voll.length / 4) * 4), 4);
+    if (t.art === 'bin') r.gilt = [voll, nibbles, '0b' + voll];
+    else if (t.art === 'hex') r.gilt = [hx2, '0x' + hx2, hx2 + 'h'].concat(b.length >= 8 ? [nibbles] : []);
+    else r.gilt = [String(parseInt(b, 2)), '0x' + hx2].concat([('0000000' + b).slice(-Math.max(8, b.length))]);
+    if (t.breite) r.gilt.push('mind. ' + t.breite + ' Stellen');
+    r.gilt = r.gilt.filter(function (x, i, a) { return a.indexOf(x) === i; });
+    return r;
+  }
+
   function textMatches(given, accepted, opt) {
     var g = norm(given, opt.caseSensitive);
     if (!g) return false;
@@ -440,7 +472,7 @@
   }
 
   var api = {
-    roundHalf: roundHalf, partialPoints: partialPoints, numReadings: numReadings, fmt: fmt, norm: norm, textMatches: textMatches, showSolution: showSolution, typed: typed, parseNum: parseNum,
+    roundHalf: roundHalf, partialPoints: partialPoints, numReadings: numReadings, fmt: fmt, norm: norm, textMatches: textMatches, showSolution: showSolution, typed: typed, loesungInfo: loesungInfo, parseNum: parseNum,
     parseCloze: parseCloze, gapsOf: gapsOf, tableGaps: tableGaps, tableChoices: tableChoices, choiceList: choiceList, maxPoints: maxPoints, isAnswered: isAnswered,
     grade: grade, gradeRevealed: gradeRevealed, gradeLabel: gradeLabel, hash: hash, seal: seal, unseal: unseal,
     sha256: sha256, hex: hex, hmac: hmac, b64Text: b64Text, textB64: textB64, fingerprint: fingerprint, pruefBlock: pruefBlock, pruefStelle: pruefStelle, siegeln: siegeln, pruefen: pruefen, utf8: utf8

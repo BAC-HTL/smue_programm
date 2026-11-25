@@ -86,6 +86,13 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .editor-tabelle td.leer { background: var(--gelb-fond); }
 .zelle-art { display: block; width: 100%; margin-top: 3px; padding: 1px 4px; border: 1px dashed var(--linie); border-radius: 3px; background: transparent; color: var(--leise); font-size: 12px; cursor: pointer; }
 .zelle-art[aria-pressed="true"] { border-style: solid; border-color: var(--gelb); color: var(--gelb); font-weight: 700; }
+.zelle-typwahl { display: flex; gap: 3px; margin-top: 3px; }
+.editor-tabelle select.zelle-typ, .zelle-typ { flex: 1 1 auto; min-width: 0; height: auto; min-height: 0; padding: 1px 2px; font-size: 12px; border: 1px solid var(--linie); border-radius: 3px; background: transparent; color: inherit; }
+.editor-tabelle input.zelle-stellen { width: 3.6em; flex: 0 0 auto; min-height: 0; padding: 1px 2px; font-size: 12px; }
+.typ-hinweis { margin-top: 3px; font-size: 12px; line-height: 1.3; color: var(--leise); white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.editor-tabelle .typ-hinweis { max-width: 16em; }
+.typ-hinweis.fehler { color: var(--rot); font-weight: 700; }
+.typ-hinweis.warnung { color: var(--gelb); font-weight: 700; }
 
 /* Einzelauswertung im Prüf-Tool und zum Drucken */
 table.einzel { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 14px; margin-top: 6px; }

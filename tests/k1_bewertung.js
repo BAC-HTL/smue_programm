@@ -42,6 +42,12 @@ module.exports = async function () {
   await fall('GW-TY03', 'dez: Bitmuster mit 7 Stellen zählt als Dezimalzahl, also falsch', 0, () => e(text(['dez:104']), '1101000'));
   await fall('ÄK-TY08', 'bytes: hex ohne Leerzeichen, mit 0x und binär', 3, () => e(tab(['bytes:E2 86 92', 'bytes:E2 86 92', 'bytes:E2 86 92']), ['E28692', '0xE2 0x86 0x92', '1110 0010 1000 0110 1001 0010']));
   await fall('GW-TY04', 'bytes: führendes Null-Byte ist ein anderes Ergebnis', 0, () => e(text(['bytes:E2 86 92']), '00 E2 86 92'));
+  const info = (a) => C.loesungInfo(a);
+  await fall('ÄK-TY11', 'Editor-Hinweis: bin7 zeigt Schreibweisen und Mindeststellen', '1001000|0100 1000|0b1001000|mind. 7 Stellen', () => info('bin7:1001000').gilt.join('|'));
+  await fall('ÄK-TY12', 'Jede im Editor gezeigte Schreibweise wird als richtig bewertet', 'true', () => String(['bin7:1001000', 'hex:U+2605', 'dez:104', 'bytes:E2 86 92', 'bin:111000'].every(a => info(a).gilt.filter(g => !/^mind/.test(g)).every(g => C.textMatches(g, [a], {})))));
+  await fall('GW-TY05', 'bytes: mit 6 Bit gibt eine Warnung (wird als hex gelesen)', 'true|', () => String(/hex gelesen: 11 10 00/.test(info('bytes:111000').warnung)) + '|' + info('bytes:111000').fehler);
+  await fall('GW-TY06', 'Ungültige Werte geben einen Fehler', 'true|true|true|true', () => ['hex:XYZ', 'bin:12', 'bytes:E2 8', 'dez:'].map(a => String(!!info(a).fehler)).join('|'));
+  await fall('ÄK-TY13', 'Lösung ohne Typ hat keinen Hinweis', 'null', () => String(info('nicht möglich')));
   await fall('ÄK-TY09', 'Anzeige der Lösung ohne Typ', 'U+2605 | 1001000', () => C.grade(tab(['hex:U+2605', 'bin7:1001000']), []).solution);
   await fall('ÄK-TY10', 'Text ohne Typ bleibt Textvergleich', 0, () => e(text(['1001000']), '0100 1000'));
 

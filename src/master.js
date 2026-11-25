@@ -302,6 +302,56 @@
           h('button', { class: 'btn klein rot', type: 'button', id: p + '-bildweg', text: 'Bild entfernen', onclick: function () { delete q.image; persist(); renderQuestions(); } })])])]);
   }
 
+  /* Lösung mit Typ: Auswahlfeld und Hinweis, was als richtig zählt */
+  var TYPEN = [['', 'Text'], ['bin', 'bin'], ['hex', 'hex'], ['dez', 'dez'], ['bytes', 'bytes']];
+  function teile(s) { return String(s || '').split('|').map(function (x) { return x.trim(); }).filter(Boolean); }
+  function artVon(alts) {
+    var a = alts.map(function (x) { var t = C.typed(x); return t ? t.art + ':' + t.breite : ':0'; });
+    if (a.some(function (x) { return x !== a[0]; })) return null;
+    var k = (a[0] || ':0').split(':');
+    return { art: k[0], breite: Number(k[1]) || 0 };
+  }
+  function mitArt(alts, art, breite) {
+    return alts.map(function (x) { var w = C.showSolution(x); return art ? art + (art === 'bin' && breite ? breite : '') + ':' + w : w; });
+  }
+  function typHinweis(alts) {
+    var infos = alts.map(function (x) { return { x: x, i: C.loesungInfo(x) }; }).filter(function (o) { return o.i; });
+    if (!infos.length) return null;
+    var mehr = alts.length > 1, f = infos.filter(function (o) { return o.i.fehler; })[0];
+    if (f) return { klasse: 'fehler', text: (mehr ? '„' + f.x + '“: ' : '') + f.i.fehler };
+    var w = infos.filter(function (o) { return o.i.warnung; })[0];
+    if (w) return { klasse: 'warnung', text: (mehr ? '„' + w.x + '“: ' : '') + w.i.warnung };
+    var g = [];
+    alts.forEach(function (x) { var i = C.loesungInfo(x); (i ? i.gilt : [x]).forEach(function (y) { if (g.indexOf(y) < 0) g.push(y); }); });
+    return { klasse: 'gilt', text: 'Richtig z. B.: ' + g.join(' · ') };
+  }
+  function zeigeHinweis(el, alts) {
+    var r = typHinweis(alts);
+    el.hidden = !r; el.className = 'typ-hinweis' + (r ? ' ' + r.klasse : ''); el.textContent = r ? r.text : '';
+  }
+  /* Auswahlfeld Text/bin/hex/dez/bytes für eine Zelle; lesen() und schreiben() greifen auf den Lösungstext zu */
+  function typWahl(id, lesen, schreiben) {
+    var sel = h('select', { id: id + '-typ', class: 'zelle-typ', 'aria-label': 'Art der Lösung', title: 'Text vergleicht die Schreibweise. bin, hex, dez und bytes vergleichen den Wert.' }),
+      stellen = h('input', { type: 'number', id: id + '-stellen', class: 'zelle-stellen', min: 0, max: 64, step: 1, 'aria-label': 'Mindestens so viele Stellen', title: 'Mindestens so viele Stellen, z. B. 7 für 7 Datenbits. Leer: beliebig.', placeholder: 'min.' }),
+      hinweis = h('div', { id: id + '-hinweis', class: 'typ-hinweis', 'aria-live': 'polite', hidden: true });
+    function sync() {
+      var alts = teile(lesen()), a = artVon(alts);
+      sel.textContent = '';
+      if (!a) sel.append(h('option', { value: '*', text: 'gemischt', selected: true, disabled: true }));
+      TYPEN.forEach(function (t) { sel.append(h('option', { value: t[0], text: t[1], selected: !!a && a.art === t[0] })); });
+      stellen.hidden = !a || a.art !== 'bin';
+      if (document.activeElement !== stellen) stellen.value = a && a.breite ? a.breite : '';
+      zeigeHinweis(hinweis, alts);
+    }
+    function neu() {
+      var alts = teile(lesen()), art = sel.value === '*' ? '' : sel.value, b = Math.max(0, Math.min(64, parseInt(stellen.value, 10) || 0));
+      schreiben(mitArt(alts, art, b).join('|')); sync();
+    }
+    sel.addEventListener('change', neu); stellen.addEventListener('input', neu);
+    sync();
+    return { sync: sync, teile: [h('div', { class: 'zelle-typwahl' }, [sel, stellen]), hinweis] };
+  }
+
   function tableEditor(q) {
     var p = 'q-' + q.id, t = q.table, cols = t.head.length;
     var num = function (id, label, val, max, on) {
@@ -314,13 +364,14 @@
       }))]),
       h('tbody', {}, t.rows.map(function (row, r) {
         return h('tr', {}, row.map(function (cell, c) {
-          var id = p + '-z' + r + '-s' + c;
-          return h('td', { class: cell.fill ? 'leer' : '' }, [
-            h('input', { type: 'text', id: id, value: cell.t, 'aria-label': (cell.fill ? 'Lösung' : 'Vorgabe') + ' Zeile ' + (r + 1) + ', Spalte ' + (c + 1), placeholder: cell.fill ? 'Lösung' : '', oninput: function (e) { cell.t = e.target.value; persist(); } }),
+          var id = p + '-z' + r + '-s' + c, wahl = null;
+          var feld = h('input', { type: 'text', id: id, value: cell.t, 'aria-label': (cell.fill ? 'Lösung' : 'Vorgabe') + ' Zeile ' + (r + 1) + ', Spalte ' + (c + 1), placeholder: cell.fill ? 'Lösung' : '', oninput: function (e) { cell.t = e.target.value; persist(); if (wahl) wahl.sync(); } });
+          if (cell.fill) wahl = typWahl(id, function () { return cell.t; }, function (v) { cell.t = v; feld.value = v; persist(); });
+          return h('td', { class: cell.fill ? 'leer' : '' }, [feld].concat(wahl ? wahl.teile : []).concat([
             h('button', { class: 'zelle-art', type: 'button', id: id + '-art', 'aria-pressed': cell.fill ? 'true' : 'false', title: cell.fill ? 'Schüler füllen diese Zelle aus. Klicken macht sie zur Vorgabe.' : 'Vorgegebene Zelle. Klicken lässt sie von Schülern ausfüllen.', text: cell.fill ? 'ausfüllen' : 'vorgegeben', onclick: function () {
               if (cell.fill) delete cell.fill; else cell.fill = true;
               persist(); renderQuestions(); var b = document.getElementById(id + '-art'); if (b) b.focus();
-            } })]);
+            } })]));
         }));
       }))]);
     return [
@@ -331,7 +382,7 @@
           h('button', { class: 'btn klein', type: 'button', id: p + '-wt', text: 'Erzeugen', onclick: function () {
             var w = truthTable(Number(vars.value)); q.table = w.table; q.choices = w.choices; persist(); renderQuestions();
           } })])])]),
-      h('p', { class: 'hinweis', text: 'Gelbe Zellen füllen Schüler aus. Trag dort die Lösung ein, weitere richtige Lösungen trennst du mit |. Mit dem Knopf unter jeder Zelle wechselst du zwischen vorgegeben und ausfüllen.' }),
+      h('p', { class: 'hinweis', text: 'Gelbe Zellen füllen Schüler aus. Trag dort die Lösung ein, weitere richtige Lösungen trennst du mit |. Darunter wählst du die Art: Text vergleicht die Schreibweise, bin, hex, dez und bytes vergleichen den Wert. Mit dem Knopf unter jeder Zelle wechselst du zwischen vorgegeben und ausfüllen.' }),
       h('div', { class: 'tabelle' }, [grid]),
       field(p + '-auswahl', 'Auswahl für Schüler (optional)', bindText(p + '-auswahl', q, 'choices', { placeholder: 'z. B. 0, 1' }), 'Mit Komma getrennt. Dann wählen Schüler in jeder Zelle aus dieser Liste. Leer lassen für freie Eingabe.'),
       h('div', { class: 'schalter' }, [bindCheck(p + '-gk', q, 'caseSensitive', 'Groß- und Kleinschreibung beachten'), bindCheck(p + '-typo', q, 'typo', 'Einen Tippfehler dulden')])];
@@ -341,9 +392,11 @@
     var p = 'q-' + q.id;
     switch (q.type) {
       case 'text':
+        var th = h('div', { id: p + '-richtig-hinweis', class: 'typ-hinweis', 'aria-live': 'polite', hidden: true });
+        zeigeHinweis(th, q.accepted || []);
         return [field(p + '-richtig', 'Richtige Antworten, eine pro Zeile', h('textarea', { id: p + '-richtig', rows: 2, value: (q.accepted || []).join('\n'), oninput: function (e) {
-          q.accepted = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist();
-        } })),
+          q.accepted = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist(); zeigeHinweis(th, q.accepted);
+        } }), 'Für Zahlen in Binär oder Hex einen Typ davor schreiben: bin:, bin7:, hex:, dez: oder bytes:.'), th,
         field(p + '-falsch', 'Falsche Antworten zur Auswahl (optional), eine pro Zeile', h('textarea', { id: p + '-falsch', rows: 2, value: (q.distractors || []).join('\n'), oninput: function (e) {
           q.distractors = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist();
         } }), 'Leer lassen für freie Eingabe. Sonst wählen Schüler aus einer Liste, die aus deiner ersten richtigen Antwort und diesen falschen besteht.'),
@@ -466,6 +519,9 @@
         if (cells.some(function (g) { return !g.acc.length; })) e.push('Trag in jede gelbe Zelle die Lösung ein.');
         else if (ch.length && cells.some(function (g) { return !g.acc.some(function (x) { return ch.some(function (c) { return C.textMatches(c, [x], q); }); }); })) e.push('Jede Lösung muss in der Auswahl für Schüler vorkommen.');
       }
+      var loes = q.type === 'text' ? (q.accepted || []) : q.type === 'table' ? [].concat.apply([], C.tableGaps(q).map(function (g) { return g.acc; }))
+        : q.type === 'cloze' ? [].concat.apply([], C.gapsOf(q).map(function (x) { return x.gap; })) : [];
+      loes.forEach(function (x) { var i = C.loesungInfo(x); if (i && i.fehler) e.push('Lösung „' + x + '“: ' + i.fehler); });
       if (q.type === 'cloze' && q.prompt.trim() && !C.gapsOf(q).length) e.push('Setze mindestens eine Lücke in {geschwungene Klammern}.');
       if (q.type === 'cloze' && C.gapsOf(q).some(function (x) { return !x.gap.length; })) e.push('Jede Lücke braucht eine richtige Antwort ohne ~.');
       if (e.length) per[q.id] = e;

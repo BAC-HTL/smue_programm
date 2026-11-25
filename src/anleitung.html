@@ -73,7 +73,7 @@
     <ul>
       <li><b>Kurzantwort:</b> in eine Zeile unter „Richtige Antworten“, zum Beispiel <code>hex:U+2605</code>.</li>
       <li><b>Lückentext:</b> in die Klammer, zum Beispiel <code>{dez:27}</code>.</li>
-      <li><b>Tabelle:</b> in die gelbe Zelle, zum Beispiel <code>bin7:1001000</code>.</li>
+      <li><b>Tabelle:</b> unter jeder gelben Zelle wählst du die Art: Text, bin, hex, dez oder bytes. Das Programm setzt den Typ dann vor die Lösung. Bei bin gibt das Feld „min.“ die Mindestzahl der Stellen an, 7 ergibt <code>bin7:</code>. Tippen geht weiter, zum Beispiel <code>bin7:1001000</code>.</li>
       <li>Typ und Text lassen sich mischen. In Lücke und Tabelle mit <code>|</code>: <code>dez:3|drei</code> lässt den Wert 3 und das Wort „drei“ gelten. Bei der Kurzantwort schreibst du beides in eigene Zeilen.</li>
     </ul>
     <p>Wann welcher Typ:</p>
@@ -83,6 +83,7 @@
       <li>Bei <code>bytes:</code> gilt eine Eingabe nur als binär, wenn sie 8, 16, 24 … Bit hat. Alles andere wird als hex gelesen: <code>bytes:111000</code> bedeutet die drei Bytes <code>11 10 00</code>. Für ein Bitmuster nimm deshalb <code>bin:</code>.</li>
       <li><code>bin7:</code>, <code>bin8:</code> … verlangen mindestens so viele Stellen. Mit <code>bin7:1001000</code> ist <code>1001000</code> und <code>0100 1000</code> richtig, <code>10010</code> nicht.</li>
     </ul>
+    <p>Unter einer Lösung mit Typ zeigt der Editor, welche Schreibweisen als richtig zählen. Rot heißt, die Lösung ist für diesen Typ ungültig, etwa <code>hex:XYZ</code>. Dann lässt sich die Schüler-Datei erst nach der Korrektur erzeugen. Gelb ist ein Hinweis, zum Beispiel wenn <code>bytes:111000</code> als hex gelesen wird. „gemischt“ heißt, die Lösungen einer Zelle haben verschiedene Typen. Wählst du dann eine Art, gilt sie für alle.</p>
     <p>Probier neue Lösungen in der Vorschau aus, bevor du die Schüler-Datei erzeugst.</p>
 
     <h3>Tabelle ausfüllen, zum Beispiel eine Wahrheitstabelle</h3>
