@@ -1,5 +1,12 @@
 # Änderungen
 
+## 1.1.0 – 13. November 2026
+
+- **PDF-Export:** Im Lehrer-Programm lässt sich der Test als PDF speichern, als Angabe zum Ausdrucken oder als Lösungsblatt. Die Angabe enthält alle Fragen mit Bildern, Antwortlinien, Kästchen und leeren Tabellen sowie Felder für Name, Klasse, Datum, Punkte und Note. Das Lösungsblatt zeigt die richtigen Antworten in Grün und den Notenschlüssel mit Punktegrenzen.
+- **Lizenz:** MIT.
+- **Behoben:** Wenn die Kopfleiste des Lehrer-Programms in zwei Zeilen umbricht, war das untere Ende der Einstellungen nicht mehr erreichbar.
+- **Tests:** 448 automatische Tests, 28 davon neu für den Export.
+
 ## 1.0.0 – 11. November 2026
 
 Erste Version im Repository. Sie enthält alle bisher entwickelten Funktionen.

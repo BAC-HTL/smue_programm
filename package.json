@@ -1,6 +1,6 @@
 {
   "name": "smue-programm",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Schriftliche Mitarbeitsüberprüfungen im Browser: Lehrer-Programm erzeugt eine offline lauffähige Schüler-Datei mit Timer, automatischer Kontrolle und PDF-Auswertung.",
   "license": "MIT",
   "author": "Christoph Bauer",

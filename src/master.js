@@ -537,6 +537,21 @@
     document.body.append(box);
   }
 
+  function exportPdf() {
+    if (!check()) return;
+    var make = function (mode) {
+      var bytes = window.SMU_EXPORT.make(D, mode), name = 'Smue_' + slug(D.title) + (D.cls.trim() ? '_' + slug(D.cls) : '') + (mode === 'loesung' ? '_Loesung' : '_Angabe') + '.pdf';
+      saveFile(name, bytes, 'application/pdf').then(function (ok) { if (ok) toast(mode === 'loesung' ? 'Lösungsblatt gespeichert.' : 'Angabe gespeichert.'); });
+    };
+    dialog('PDF exportieren', [
+      h('p', { text: 'Die Angabe enthält alle Fragen mit Platz für die Antworten, zum Ausdrucken oder fürs Archiv. Das Lösungsblatt zeigt zusätzlich die richtigen Antworten und den Notenschlüssel.' }),
+      h('p', { class: 'hinweis', text: 'Die Fragen stehen in der Reihenfolge des Entwurfs, auch wenn der Test sie mischt.' })
+    ], [
+      h('button', { class: 'btn', type: 'button', id: 'export-angabe', text: 'Angabe', onclick: function () { make('angabe'); } }),
+      h('button', { class: 'btn', type: 'button', id: 'export-loesung', text: 'Lösungsblatt', onclick: function () { make('loesung'); } }),
+      h('button', { class: 'btn still', type: 'button', text: 'Schließen', onclick: closeDialog })]);
+  }
+
   function exportDraft() {
     saveFile('Smue-Entwurf_' + slug(D.title) + '.json', JSON.stringify(D, null, 2), 'application/json').then(function (ok) {
       if (ok) toast('Entwurf gespeichert.');
@@ -649,6 +664,7 @@
 
   document.getElementById('knopf-erzeugen').addEventListener('click', generate);
   document.getElementById('knopf-vorschau').addEventListener('click', preview);
+  document.getElementById('knopf-export').addEventListener('click', exportPdf);
   document.getElementById('knopf-speichern').addEventListener('click', exportDraft);
   document.getElementById('knopf-neu').addEventListener('click', startNew);
   document.getElementById('knopf-beispiel-neu').addEventListener('click', startNew);
@@ -659,6 +675,11 @@
 
   renderSettings(); renderAdd(); renderQuestions();
   window.SMU_HILFE.init();
+  /* Die Kopfleiste kann umbrechen; die Seitenleiste richtet sich nach ihrer echten Höhe */
+  var kopf = document.querySelector('.oben');
+  var setKopf = function () { document.documentElement.style.setProperty('--kopf', kopf.offsetHeight + 'px'); };
+  setKopf();
+  if (window.ResizeObserver) new ResizeObserver(setKopf).observe(kopf); else window.addEventListener('resize', setKopf);
   var guide = document.getElementById('anleitung'), guideBack = null;
   function closeGuide() { guide.hidden = true; if (guideBack) guideBack.focus(); }
   document.getElementById('knopf-anleitung').addEventListener('click', function (e) {
