@@ -394,10 +394,10 @@
       case 'text':
         var th = h('div', { id: p + '-richtig-hinweis', class: 'typ-hinweis', 'aria-live': 'polite', hidden: true });
         zeigeHinweis(th, q.accepted || []);
-        return [field(p + '-richtig', 'Richtige Antworten, eine pro Zeile', h('textarea', { id: p + '-richtig', rows: 2, value: (q.accepted || []).join('\n'), oninput: function (e) {
+        return [field(p + '-richtig', 'Richtige Antworten, eine pro Zeile', h('textarea', { id: p + '-richtig', rows: 3, value: (q.accepted || []).join('\n'), oninput: function (e) {
           q.accepted = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist(); zeigeHinweis(th, q.accepted);
         } }), 'Für Zahlen in Binär oder Hex einen Typ davor schreiben: bin:, bin7:, hex:, dez: oder bytes:.'), th,
-        field(p + '-falsch', 'Falsche Antworten zur Auswahl (optional), eine pro Zeile', h('textarea', { id: p + '-falsch', rows: 2, value: (q.distractors || []).join('\n'), oninput: function (e) {
+        field(p + '-falsch', 'Falsche Antworten zur Auswahl (optional), eine pro Zeile', h('textarea', { id: p + '-falsch', rows: 3, value: (q.distractors || []).join('\n'), oninput: function (e) {
           q.distractors = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist();
         } }), 'Leer lassen für freie Eingabe. Sonst wählen Schüler aus einer Liste, die aus deiner ersten richtigen Antwort und diesen falschen besteht.'),
         h('div', { class: 'schalter' }, [bindCheck(p + '-gk', q, 'caseSensitive', 'Groß- und Kleinschreibung beachten'), bindCheck(p + '-typo', q, 'typo', 'Einen Tippfehler dulden')])];
@@ -449,7 +449,7 @@
                 var removed = D.questions.splice(i, 1)[0]; delete problems[q.id]; persist(); renderQuestions();
                 offerUndo(removed, i);
               } })])]),
-          field(p + '-text', isCloze ? 'Text mit Lücken' : 'Frage', h('textarea', { id: p + '-text', rows: isCloze ? 3 : 2, value: q.prompt, oninput: function (e) { q.prompt = e.target.value; persist(); } }),
+          field(p + '-text', isCloze ? 'Text mit Lücken' : 'Frage', h('textarea', { id: p + '-text', rows: isCloze ? 5 : 3, value: q.prompt, oninput: function (e) { q.prompt = e.target.value; persist(); } }),
             isCloze ? 'Setze die Lösung in geschwungene Klammern: Wien liegt an der {Donau}. Mit | trennst du weitere richtige Lösungen: {Fahrrad|Rad}. Für eine Auswahlliste schreibst du falsche Antworten mit ~ dazu: {Donau|~Inn|~Mur}.' : null)
         ].concat([imageEditor(q)], typeEditor(q), list ? list.map(function (t) { return h('p', { class: 'problem', text: t }); }) : []))]));
     });
