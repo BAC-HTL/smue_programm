@@ -71,7 +71,7 @@
       switch (q.type) {
         case 'text':
           if ((q.distractors || []).length) { choices(C.choiceList(q.accepted, q.distractors), function (t) { return sol && C.textMatches(t, q.accepted, q); }, '○', '●'); return; }
-          if (sol) answerText(q.accepted.join(' / ')); else writeLine(X, WX);
+          if (sol) answerText(q.accepted.map(C.showSolution).join(' / ')); else writeLine(X, WX);
           return;
         case 'number':
           if (sol) answerText(C.fmt(q.value) + (q.unit ? ' ' + q.unit : '') + (String(q.tol || '').trim() ? ' (± ' + C.fmt(q.tol) + ')' : ''));
@@ -108,7 +108,7 @@
     function clozeText(q, sol) {
       return C.parseCloze(q.prompt).map(function (p) {
         if (!p.gap) return p.t;
-        if (sol) return '[' + p.gap.join(' / ') + ']';
+        if (sol) return '[' + p.gap.map(C.showSolution).join(' / ') + ']';
         return '__________' + (p.wrong.length ? ' (' + C.choiceList(p.gap, p.wrong).join(' / ') + ')' : '');
       }).join('');
     }
@@ -127,7 +127,7 @@
         cells.forEach(function (c, k) {
           if (k) doc.line(X + k * cw, y, X + k * cw, y + rh);
           if (c.fill && !sol) return;
-          var txt = c.fill ? String(c.t).split('|')[0].trim() : c.t;
+          var txt = c.fill ? C.showSolution(String(c.t).split('|')[0].trim()) : c.t;
           font(head || c.fill ? 'bold' : 'normal', 10, c.fill ? GREEN : TEXT);
           doc.text(fit(txt), X + k * cw + cw / 2, y + 5, { align: 'center' });
         });

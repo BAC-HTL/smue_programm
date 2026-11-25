@@ -59,22 +59,22 @@ module.exports = async function () {
   });
   await fall('ÄK-TB13', 'Gültige Tabelle wird angenommen', 'angenommen', () => A(und()));
   const zelle = () => JSON.parse(localStorage.getItem('smue-master-entwurf')).questions[0].table.rows[0][2].t;
-  await fall('ÄK-TB14', 'Art der Lösung wählen: dez setzt den Typ, Text nimmt ihn weg', 'dez:0|0', async () => {
+  await fall('ÄK-TB29', 'Art der Lösung wählen: dez setzt den Typ, Text nimmt ihn weg', 'dez:0|0', async () => {
     const p = await master(ctx, basis({ questions: [frei()] })); await p.selectOption('#q-q1-z0-s2-typ', 'dez'); const a = await p.evaluate(zelle);
     await p.selectOption('#q-q1-z0-s2-typ', ''); const b = await p.evaluate(zelle); await p.close(); return a + '|' + b;
   });
-  await fall('ÄK-TB15', 'bin mit Mindeststellen 7 ergibt bin7:, Hinweis zeigt die Schreibweisen', 'bin7:0|true', async () => {
+  await fall('ÄK-TB30', 'bin mit Mindeststellen 7 ergibt bin7:, Hinweis zeigt die Schreibweisen', 'bin7:0|true', async () => {
     const p = await master(ctx, basis({ questions: [frei()] })); await p.selectOption('#q-q1-z0-s2-typ', 'bin'); await p.fill('#q-q1-z0-s2-stellen', '7');
     const a = await p.evaluate(zelle), t = await p.textContent('#q-q1-z0-s2-hinweis'); await p.close(); return a + '|' + /0000000/.test(t);
   });
-  await fall('ÄK-TB16', 'Getippter Typ stellt die Auswahl um, gemischte Typen zeigen „gemischt“', 'hex|*', async () => {
+  await fall('ÄK-TB31', 'Getippter Typ stellt die Auswahl um, gemischte Typen zeigen „gemischt“', 'hex|*', async () => {
     const p = await master(ctx, basis({ questions: [frei()] })); await p.fill('#q-q1-z0-s2', 'hex:1F'); const a = await p.inputValue('#q-q1-z0-s2-typ');
     await p.fill('#q-q1-z0-s2', 'hex:1F|dez:31'); const b = await p.inputValue('#q-q1-z0-s2-typ'); await p.close(); return a + '|' + b;
   });
-  await fall('GW-TB09', 'Ungültige Lösung mit Typ wird beim Erzeugen abgelehnt', 'abgelehnt', () => {
+  await fall('GW-TB12', 'Ungültige Lösung mit Typ wird beim Erzeugen abgelehnt', 'abgelehnt', () => {
     const q = frei(); q.table.rows[0][2].t = 'hex:XYZ'; return A(q);
   });
-  await fall('GW-TB10', 'bytes:111000 zeigt im Editor die Warnung', 'typ-hinweis warnung', async () => {
+  await fall('GW-TB13', 'bytes:111000 zeigt im Editor die Warnung', 'typ-hinweis warnung', async () => {
     const p = await master(ctx, basis({ questions: [frei()] })); await p.fill('#q-q1-z0-s2', 'bytes:111000'); const k = await p.getAttribute('#q-q1-z0-s2-hinweis', 'class'); await p.close(); return k;
   });
   await fall('ÄK-TB14', 'Ohne Zelle zum Ausfüllen', 'abgelehnt', () => A(und({ table: { head: ['A'], rows: [[{ t: '1' }]] } })));
