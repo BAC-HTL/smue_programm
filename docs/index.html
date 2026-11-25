@@ -13,9 +13,9 @@
 <div class="tabelle"><table>
   <thead><tr><th>Bereich</th><th>Funktionen</th></tr></thead>
   <tbody>
-    <tr><td>Fragen</td><td>Kurzantwort, Zahl, eine oder mehrere richtige Antworten, Richtig/Falsch, Lückentext, Tabelle ausfüllen (zum Beispiel Wahrheitstabellen). Bilder in jeder Frage.</td></tr>
-    <tr><td>Ablauf</td><td>Timer mit automatischer Abgabe, Startcode, Mischen, Prüfknopf mit begrenzter Anzahl, Vollbild, Sperre für Kopieren und Einfügen.</td></tr>
-    <tr><td>Auswertung</td><td>Punkte und Note sofort nach der Abgabe, PDF mit allen Antworten und Lösungen, Protokoll auffälliger Ereignisse.</td></tr>
+    <tr><td>Fragen</td><td>Kurzantwort, Zahl, eine oder mehrere richtige Antworten, Richtig/Falsch, Lückentext, Tabelle ausfüllen (zum Beispiel Wahrheitstabellen). Lösungen in Binär, Hex, Dezimal oder als Bytefolge werden nach dem Wert erkannt, egal wie sie geschrieben sind. Bilder in jeder Frage. Unterlagen wie Datenblätter als PDF im Test.</td></tr>
+    <tr><td>Ablauf</td><td>Timer mit automatischer Abgabe, Startcode, Mischen, Prüfknopf mit begrenzter Anzahl, eine Frage pro Seite mit begrenztem Überspringen, Vollbild mit Tastatursperre, Sperre für Kopieren und Einfügen, nur Chrome oder Edge.</td></tr>
+    <tr><td>Auswertung</td><td>Punkte und Note sofort nach der Abgabe, PDF für Schüler in drei Stufen (vollständig, ohne Bewertung, nur Bestätigung), Protokoll auffälliger Ereignisse, Einzelauswertung zum Drucken.</td></tr>
     <tr><td>Export</td><td>Den Test als PDF speichern: Angabe zum Ausdrucken oder Lösungsblatt mit Notenschlüssel.</td></tr>
     <tr><td>Sicherung</td><td>Abgegebene PDFs lassen sich mit der Kontrolldatei prüfen. Veränderungen am PDF oder an der Schüler-Datei werden mit SHA-256 erkannt, die Punkte nachgerechnet.</td></tr>
   </tbody>
@@ -23,8 +23,8 @@
 
 <h2>In drei Schritten</h2>
 <ol class="schritte">
-  <li><b>Test erstellen:</b> Lehrer-Programm öffnen, Fragen anlegen, „Schüler-Datei erzeugen“. Bewahre die mitgespeicherte <code>_Kontrolle.json</code> gut auf.</li>
-  <li><b>Verteilen:</b> Die Schüler-Datei per Moodle, Netzlaufwerk oder USB-Stick weitergeben. Alle bekommen dieselbe Datei.</li>
+  <li><b>Test erstellen:</b> Lehrer-Programm öffnen, Fragen anlegen, „Schüler-Datei erzeugen“. Es entstehen zwei Dateien: die <code>.html</code> für die Schüler und die <code>_Kontrolle.json</code> nur für dich. Bewahre sie gut auf.</li>
+  <li><b>Verteilen:</b> Nur die HTML-Datei per Moodle, Netzlaufwerk oder USB-Stick weitergeben, die <code>_Kontrolle.json</code> nie. Alle bekommen dieselbe Datei.</li>
   <li><b>Auswerten:</b> PDFs einsammeln und unter „Abgaben prüfen“ kontrollieren.</li>
 </ol>
 <p>Alle Einzelheiten stehen in der <a href="anleitung.html">Anleitung</a>. Sie ist identisch mit der Anleitung im Programm.</p>

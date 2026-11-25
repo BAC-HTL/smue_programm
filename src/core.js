@@ -32,10 +32,101 @@
     return prev[b.length];
   }
 
+  /* Lösungen mit Typ: Verglichen wird der Wert, nicht der Text.
+     bin:1001000   binär; führende Nullen, Leerzeichen, 0b und ₂ sind egal
+     bin7:1001000  binär mit mindestens 7 Stellen (mehr nur mit führenden Nullen)
+     hex:U+2605    hex; U+, 0x, #, h, ₁₆ und Gruppen sind egal, lange Bitmuster (ab 8 Stellen) zählen auch
+     dez:104       Dezimalzahl, auch mit „Byte“ dahinter oder als Bitmuster ab 8 Stellen
+     bytes:E2 86 92  Bytefolge in hex oder binär (ganze Bytes), führende Null-Bytes zählen mit
+     Angezeigt wird nur der Teil nach dem Doppelpunkt. */
+  var TYP = /^(bin\d{0,2}|hex|dez|bytes)\s*:\s*/i, BASIS = { bin: 2, hex: 16, dez: 10 };
+  function typed(acc) {
+    var s = String(acc == null ? '' : acc).trim(), m = TYP.exec(s);
+    if (!m) return null;
+    var art = m[1].toLowerCase(), b = /^bin(\d+)$/.exec(art);
+    return { art: b ? 'bin' : art, breite: b ? Number(b[1]) : 0, wert: s.slice(m[0].length).trim() };
+  }
+  function showSolution(acc) { var t = typed(acc); return t ? t.wert : String(acc); }
+  function zerlege(s, art) {
+    var t = norm(s, false).replace(/[\s_'\-–.]/g, ''), base = 0, m;
+    if (art === 'dez' || art === 'bytes') t = t.replace(/(bytes?|bits?)$/, '');
+    if ((m = /(₂|₁₆|₁₀)$/.exec(t))) { base = { '₂': 2, '₁₆': 16, '₁₀': 10 }[m[1]]; t = t.slice(0, -m[1].length); }
+    if (/^(0x|u\+|#)/.test(t)) { base = 16; t = t.replace(/0x|u\+/g, '').replace(/^#/, ''); }
+    else if (/^0b/.test(t)) { base = 2; t = t.replace(/0b/g, ''); }
+    else if (!base && /^[0-9a-f]+h$/.test(t)) { base = 16; t = t.slice(0, -1); }
+    return { d: t, base: base };
+  }
+  function zuBin(d, base) {
+    if (!d) return null;
+    if (base === 2) return /^[01]+$/.test(d) ? d : null;
+    if (base === 16) return /^[0-9a-f]+$/.test(d) ? d.split('').map(function (c) { return ('000' + parseInt(c, 16).toString(2)).slice(-4); }).join('') : null;
+    if (base === 10) return /^\d{1,15}$/.test(d) ? Number(d).toString(2) : null;
+    return null;
+  }
+  function ohneNull(b) { return b.replace(/^0+/, '') || '0'; }
+  function binHex(b) { var out = ''; for (var i = 0; i < b.length; i += 4) out += parseInt(b.slice(i, i + 4), 2).toString(16); return out; }
+  function bytesLesarten(z) {
+    var out = [];
+    if ((z.base === 2 || !z.base) && /^[01]+$/.test(z.d) && z.d.length % 8 === 0) out.push(binHex(z.d));
+    if ((z.base === 16 || !z.base) && /^[0-9a-f]+$/.test(z.d) && z.d.length % 2 === 0) out.push(z.d);
+    return out;
+  }
+  function wertGleich(given, t) {
+    var g = zerlege(given, t.art), soll = zerlege(t.wert, t.art);
+    if (!g.d) return false;
+    if (t.art === 'bytes') {
+      var s = bytesLesarten(soll)[0];
+      return !!s && bytesLesarten(g).indexOf(s) >= 0;
+    }
+    var sb = zuBin(soll.d, soll.base || BASIS[t.art]);
+    if (sb === null) return false;
+    sb = ohneNull(sb);
+    var basen = g.base ? [g.base] : [BASIS[t.art]];
+    if (!g.base && t.art !== 'bin' && /^[01]{8,}$/.test(g.d)) basen.push(2);
+    return basen.some(function (b) {
+      var x = zuBin(g.d, b);
+      return x !== null && ohneNull(x) === sb && (!t.breite || b !== 2 || x.length >= t.breite);
+    });
+  }
+
+  /* Für den Editor: Ist eine Lösung mit Typ gültig, und welche Schreibweisen gelten als richtig? */
+  function gruppe(s, n) { var out = []; for (var i = s.length; i > 0; i -= n) out.unshift(s.slice(Math.max(0, i - n), i)); return out.join(' '); }
+  function loesungInfo(acc) {
+    var t = typed(acc);
+    if (!t) return null;
+    var r = { art: t.art, breite: t.breite, fehler: '', warnung: '', gilt: [] }, z = zerlege(t.wert, t.art);
+    if (!z.d) { r.fehler = 'Nach dem Doppelpunkt fehlt der Wert.'; return r; }
+    if (t.art === 'bytes') {
+      var hx = bytesLesarten(z)[0];
+      if (!hx) { r.fehler = 'Keine ganzen Bytes: hex mit 2 Stellen je Byte (E2 86 92) oder binär mit 8 Bit je Byte.'; return r; }
+      if (z.base !== 16 && /^[01]+$/.test(z.d) && z.d.length % 8) r.warnung = 'Wird als hex gelesen: ' + gruppe(hx.toUpperCase(), 2) + '. Für ein Bitmuster nimm bin:.';
+      var bin = zuBin(hx, 16);
+      r.gilt = [gruppe(hx.toUpperCase(), 2), hx.toUpperCase(), gruppe(bin, 8)];
+      return r;
+    }
+    var b = zuBin(z.d, z.base || BASIS[t.art]);
+    if (b === null) {
+      r.fehler = { bin: 'Binär sind nur 0 und 1 erlaubt.', hex: 'Hex sind nur 0–9 und A–F erlaubt.', dez: 'Dezimal sind nur die Ziffern 0–9 erlaubt.' }[t.art];
+      return r;
+    }
+    b = ohneNull(b);
+    var voll = b.length < t.breite ? ('0'.repeat(t.breite) + b).slice(-t.breite) : b,
+      h4 = ('000' + b).slice(-Math.ceil(b.length / 4) * 4), hx2 = binHex(h4).replace(/^0+(?=.)/, '').toUpperCase();
+    var nibbles = gruppe(('000' + voll).slice(-Math.ceil(voll.length / 4) * 4), 4);
+    if (t.art === 'bin') r.gilt = [voll, nibbles, '0b' + voll];
+    else if (t.art === 'hex') r.gilt = [hx2, '0x' + hx2, hx2 + 'h'].concat(b.length >= 8 ? [nibbles] : []);
+    else r.gilt = [String(parseInt(b, 2)), '0x' + hx2].concat([('0000000' + b).slice(-Math.max(8, b.length))]);
+    if (t.breite) r.gilt.push('mind. ' + t.breite + ' Stellen');
+    r.gilt = r.gilt.filter(function (x, i, a) { return a.indexOf(x) === i; });
+    return r;
+  }
+
   function textMatches(given, accepted, opt) {
     var g = norm(given, opt.caseSensitive);
     if (!g) return false;
     return accepted.some(function (a) {
+      var t = typed(a);
+      if (t) return wertGleich(given, t);
       var x = norm(a, opt.caseSensitive);
       if (!x) return false;
       if (x === g) return true;
@@ -106,7 +197,7 @@
   /* Auswahlliste: erste richtige Antwort plus falsche, alphabetisch, damit die Reihenfolge nichts verrät */
   function choiceList(correct, wrong) {
     var seen = {}, out = [];
-    (correct.length ? [correct[0]] : []).concat(wrong).forEach(function (x) {
+    (correct.length ? [showSolution(correct[0])] : []).concat(wrong).forEach(function (x) {
       var k = norm(x, true);
       if (k && !seen[k]) { seen[k] = 1; out.push(x); }
     });
@@ -132,7 +223,7 @@
     switch (q.type) {
       case 'text':
         given = answered ? String(a).trim() : '';
-        solution = q.accepted.join(' / ');
+        solution = q.accepted.map(showSolution).join(' / ');
         if (textMatches(a, q.accepted, q)) earned = max;
         break;
       case 'number':
@@ -165,14 +256,14 @@
         var gaps = gapsOf(q), arr = Array.isArray(a) ? a : [], ok = 0;
         gaps.forEach(function (g, i) { if (textMatches(arr[i], g.gap, q)) ok++; });
         given = answered ? gaps.map(function (g, i) { return String(arr[i] || '').trim() || '–'; }).join(' | ') : '';
-        solution = gaps.map(function (g) { return g.gap.join(' / '); }).join(' | ');
+        solution = gaps.map(function (g) { return g.gap.map(showSolution).join(' / '); }).join(' | ');
         earned = gaps.length ? partialPoints(ok / gaps.length, max, ok === gaps.length) : 0;
         break;
       case 'table':
         var cells = tableGaps(q), ta = Array.isArray(a) ? a : [], hit = 0;
         cells.forEach(function (g, i) { if (textMatches(ta[i], g.acc, q)) hit++; });
         given = answered ? cells.map(function (g, i) { return String(ta[i] || '').trim() || '–'; }).join(' | ') : '';
-        solution = cells.map(function (g) { return g.acc.join(' / '); }).join(' | ');
+        solution = cells.map(function (g) { return g.acc.map(showSolution).join(' / '); }).join(' | ');
         earned = cells.length ? partialPoints(hit / cells.length, max, hit === cells.length) : 0;
         break;
     }
@@ -181,6 +272,13 @@
       earned: earned, max: max, given: given, solution: solution,
       status: !answered ? 'empty' : earned >= max ? 'full' : earned > 0 ? 'partial' : 'wrong'
     };
+  }
+
+  /* Wie grade, aber eine aufgelöste Frage bringt 0 Punkte und hat den Status „revealed“ */
+  function gradeRevealed(q, a, revealed) {
+    var g = grade(q, a);
+    if (revealed && revealed[q.id]) { g.earned = 0; g.status = 'revealed'; }
+    return g;
   }
 
   function gradeLabel(pct, grading) {
@@ -323,6 +421,18 @@
     bytes.set(sig, p.sigFileAt);
     return bytes;
   }
+  /* Einzelauswertung für die Lehrkraft (das Schüler-PDF kann sie weglassen); liefert die erreichten Punkte */
+  function bewerte(r, K, P) {
+    var e = 0, m = 0, antworten = P.answers || {};
+    r.fragen = [];
+    K.questions.forEach(function (q) {
+      var g = gradeRevealed(q, antworten[q.id], P.revealed); e += g.earned; m += g.max;
+      r.fragen.push({ prompt: q.type === 'cloze' ? q.prompt.replace(/\{[^{}]*\}/g, '_____') : q.prompt, type: q.type,
+        earned: g.earned, max: g.max, status: g.status, given: g.given, solution: g.solution });
+    });
+    r.earned = e; r.max = m; r.pct = m ? Math.floor(e / m * 1000 + 1e-6) / 10 : 0; r.note = gradeLabel(r.pct, K.grading);
+    return e;
+  }
   function pruefen(bytes, K) {
     var r = { status: 'ohne', hinweise: [], name: '', cls: '', earned: null, max: null, pct: null, note: null, log: [], dauer: null };
     var p = pruefStelle(bytes);
@@ -333,7 +443,17 @@
     try { P = JSON.parse(textB64(b64)); } catch (e) { r.status = 'veraendert'; r.hinweise.push('Die Prüfdaten sind beschädigt.'); return r; }
     r.name = String(P.first || '') + ' ' + String(P.last || ''); r.cls = P.cls || ''; r.log = Array.isArray(P.log) ? P.log : [];
     r.startedAt = P.startedAt; r.submittedAt = P.submittedAt;
-    if (P.test !== K.id) { r.status = 'fremd'; r.hinweise.push('Dieses PDF gehört zu einem anderen Test.'); return r; }
+    if (P.test !== K.id) {
+      r.status = 'fremd'; r.hinweise.push('Dieses PDF gehört zu einem anderen Test.');
+      /* Antworten trotzdem zeigen, wenn die Fragen dieselben sind (z. B. Vorschau oder neu erzeugte Datei aus demselben Entwurf) */
+      var ids = Object.keys(P.answers || {}), passt = K.questions.some(function (q) { return ids.indexOf(q.id) >= 0; });
+      if (passt) {
+        bewerte(r, K, P);
+        r.note = null;
+        r.hinweise.push('Antworten und Punkte nur zur Ansicht: bewertet mit den Lösungen dieser Kontrolldatei, Echtheit nicht geprüft.');
+      } else if (ids.length) r.hinweise.push('Die Fragen passen nicht zu dieser Kontrolldatei, die Antworten können nicht angezeigt werden.');
+      return r;
+    }
     var filesig = '';
     for (i = p.sigFileAt; i < p.end; i++) filesig += String.fromCharCode(bytes[i]);
     var kopie = bytes.slice();
@@ -343,9 +463,7 @@
     if (!okPayload) { r.status = 'veraendert'; r.hinweise.push('Die Prüfdaten wurden verändert.'); }
     if (!okDatei) { r.status = 'veraendert'; r.hinweise.push('Das PDF wurde nach der Abgabe verändert.'); }
     if (P.fp !== K.fp) { r.status = 'veraendert'; r.hinweise.push('Die Schüler-Datei wurde vor oder während des Tests verändert.'); }
-    var e = 0, m = 0, antworten = P.answers || {};
-    K.questions.forEach(function (q) { var g = grade(q, antworten[q.id]); e += g.earned; m += g.max; });
-    r.earned = e; r.max = m; r.pct = m ? Math.floor(e / m * 1000 + 1e-6) / 10 : 0; r.note = gradeLabel(r.pct, K.grading);
+    var e = bewerte(r, K, P), m = r.max;
     if (!P.shown || P.shown.earned !== e || P.shown.max !== m) { r.status = 'veraendert'; r.hinweise.push('Die angezeigten Punkte (' + fmt(P.shown ? P.shown.earned : 0) + ') stimmen nicht mit den nachgerechneten überein.'); }
     r.dauer = P.submittedAt - P.startedAt;
     if (!(r.dauer <= K.minutes * 60000 + 5000)) { r.hinweise.push('Die Bearbeitungszeit liegt über der erlaubten Zeit.'); if (r.status === 'echt') r.status = 'auffaellig'; }
@@ -354,9 +472,9 @@
   }
 
   var api = {
-    roundHalf: roundHalf, partialPoints: partialPoints, numReadings: numReadings, fmt: fmt, norm: norm, textMatches: textMatches, parseNum: parseNum,
+    roundHalf: roundHalf, partialPoints: partialPoints, numReadings: numReadings, fmt: fmt, norm: norm, textMatches: textMatches, showSolution: showSolution, typed: typed, loesungInfo: loesungInfo, parseNum: parseNum,
     parseCloze: parseCloze, gapsOf: gapsOf, tableGaps: tableGaps, tableChoices: tableChoices, choiceList: choiceList, maxPoints: maxPoints, isAnswered: isAnswered,
-    grade: grade, gradeLabel: gradeLabel, hash: hash, seal: seal, unseal: unseal,
+    grade: grade, gradeRevealed: gradeRevealed, gradeLabel: gradeLabel, hash: hash, seal: seal, unseal: unseal,
     sha256: sha256, hex: hex, hmac: hmac, b64Text: b64Text, textB64: textB64, fingerprint: fingerprint, pruefBlock: pruefBlock, pruefStelle: pruefStelle, siegeln: siegeln, pruefen: pruefen, utf8: utf8
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

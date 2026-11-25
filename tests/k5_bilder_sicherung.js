@@ -175,6 +175,8 @@ module.exports = async function () {
   await fall('ÄK-G14', 'Fremdes PDF ohne Prüfdaten', 'ohne', async () => { const f = path.join(TMP, 'fremd.pdf'); fs.writeFileSync(f, '%PDF-1.4 leer'); return (await pruef(f, a0.k)).status; });
   await fall('GW-G03', 'Leere Datei', 'ohne', async () => { const f = path.join(TMP, 'leer.pdf'); fs.writeFileSync(f, ''); return (await pruef(f, a0.k)).status; });
   await fall('ÄK-G15', 'PDF aus einem anderen Test', 'fremd', async () => { const a2 = await paar(ctx, einfach); return (await pruef(orig.pdf, a2.k)).status; });
+  await fall('ÄK-G15b', 'Anderer Test mit denselben Fragen: Antworten und Punkte zur Ansicht, ohne Note', 'fremd|2 von 3|2|null', async () => { const a2 = await paar(ctx, einfach); const r = await pruef(orig.pdf, a2.k); return r.status + '|' + r.earned + ' von ' + r.max + '|' + r.fragen.length + '|' + r.note; });
+  await fall('GW-G03b', 'Anderer Test mit anderen Fragen: keine Antworten', 'fremd|false|null', async () => { const a3 = await paar(ctx, basis({ questions: [fq({ id: 'qx' })] })); const r = await pruef(orig.pdf, a3.k); return r.status + '|' + !!r.fragen + '|' + r.earned; });
   await fall('ÄK-G16', 'Selbst berechnete gefälschte Signatur ohne Schlüssel', 'veraendert', async () => (await pruef(kopie(b => { const p = C.pruefStelle(new Uint8Array(b)); b.write(C.hmac('falsch', new Uint8Array(b)), p.sigFileAt, 'latin1'); }), a0.k)).status);
 
   klasse('G3 Veränderte Schüler-Datei');
@@ -208,7 +210,7 @@ module.exports = async function () {
     const p = await panel(ctx, [b2.pdf, b3.pdf]); const t = await p.textContent('#pruef-liste'); await p.close(); return String(/Mehrere Abgaben/.test(t));
   });
   await fall('ÄK-G25', 'Protokoll aufklappbar, auch wenn die Seite im PDF fehlen würde', 'true', async () => {
-    const p = await panel(ctx, [orig.pdf]); await p.click('#pruef-liste summary'); const t = await p.textContent('#pruef-liste details'); await p.close(); return String(/Quelltext/.test(t));
+    const p = await panel(ctx, [orig.pdf]); await p.click('#pruef-liste details.protokoll summary'); const t = await p.textContent('#pruef-liste details.protokoll'); await p.close(); return String(/Quelltext/.test(t));
   });
   await fall('ÄK-G26', 'Anleitung beschreibt Bilder und Prüfung', 'true', async () => {
     const p = await master(ctx, basis()); const t = await p.textContent('#anleitung'); await p.close(); return String(/Wo muss das Bild liegen/.test(t) && /Abgaben prüfen/.test(t));

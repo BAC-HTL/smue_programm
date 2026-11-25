@@ -94,5 +94,11 @@ module.exports = async function () {
     const p = await master(ctx, basis()); await p.hover('#knopf-export'); await warte(450); const t = await p.textContent('#hilfe-tip'); const a = await p.textContent('#anleitung'); await p.close();
     return String(/Lösungsblatt/.test(t) && /Test als PDF exportieren/.test(a));
   });
+  await fall('ÄK-X29', 'Lösungsblatt zeigt Lösungen mit Typ ohne Präfix', 'true', async () => {
+    const q = [TEXT({ accepted: ['hex:U+2605'] }), { id: 'q2', type: 'cloze', prompt: 'Größe {dez:104} Byte.', points: 1, caseSensitive: false, typo: false },
+      { id: 'q3', type: 'table', prompt: 'Parität', points: 1, caseSensitive: false, typo: false, table: { head: ['Z', 'Bits'], rows: [[{ t: 'H' }, { t: 'bin7:1001000', fill: true }]] } }];
+    const t = pdfText((await exportiere(ctx, basis({ questions: q }), 'loesung')).pdf);
+    return String(/U\+2605/.test(t) && /\[104\]/.test(t) && /1001000/.test(t) && !/(hex|dez|bin7?):/.test(t));
+  });
   await ctx.close();
 };

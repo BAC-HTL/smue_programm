@@ -45,7 +45,7 @@
 
   function emptyDraft() {
     return { sample: false, title: '', subject: '', cls: '', teacher: '', minutes: 20, startCode: '', pin: pin(),
-      shuffleQ: false, shuffleO: true, showSolutions: true, logBlur: true, fullscreen: true, lock: true, pruefAn: false, pruefArt: 'gesamt', pruefZahl: 2,
+      shuffleQ: false, shuffleO: true, showSolutions: true, logBlur: true, fullscreen: true, lock: true, pruefAn: false, pruefArt: 'gesamt', pruefZahl: 2, reveal: false, selfRestart: false, single: false, skipZahl: 2, scoreOnly: false, browserCheck: true, pdfMode: 'voll',
       grading: { on: false, thresholds: [88, 75, 63, 50] }, questions: [] };
   }
   function sampleDraft() {
@@ -87,6 +87,7 @@
       if (k === 'questions' || k === 'grading' || raw[k] === undefined || raw[k] === null) return;
       d[k] = typeof d[k] === 'string' ? String(raw[k]) : typeof d[k] === 'number' ? (Number(raw[k]) || 0) : !!raw[k];
     });
+    if (['voll', 'ohne', 'quittung'].indexOf(d.pdfMode) < 0) d.pdfMode = 'voll';
     d.questions = raw.questions;
     var g = raw.grading;
     if (g && Array.isArray(g.thresholds) && g.thresholds.length === 4) d.grading = { on: !!g.on, thresholds: g.thresholds.map(Number) };
@@ -96,6 +97,29 @@
   var D = null, problems = {};
   try { D = cleanDraft(JSON.parse(localStorage.getItem(STORE))); } catch (e) { D = null; }
   if (!D) D = sampleDraft();
+
+  /* Unterlagen (PDFs für Schüler): zu groß für localStorage, daher in IndexedDB; im Entwurf als "docs" */
+  var DOCS = [];
+  function docsDb(mode, fn) {
+    return new Promise(function (ok, no) {
+      if (!window.indexedDB) { no(new Error('idb')); return; }
+      var r = indexedDB.open('smue-unterlagen', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('h'); };
+      r.onerror = function () { no(r.error); };
+      r.onsuccess = function () {
+        var tx = r.result.transaction('h', mode), q = fn(tx.objectStore('h'));
+        tx.oncomplete = function () { ok(q && q.result); r.result.close(); };
+        tx.onerror = function () { no(tx.error); };
+      };
+    });
+  }
+  function cleanDocs(a) {
+    return Array.isArray(a) ? a.filter(function (d) { return d && typeof d.name === 'string' && typeof d.data === 'string' && /^JVBER/.test(d.data); })
+      .map(function (d) { return { name: d.name.slice(0, 60), data: d.data }; }) : [];
+  }
+  function saveDocs() { docsDb('readwrite', function (s) { s.put(DOCS, 'docs'); }).catch(function () { /* nur im Speicher */ }); }
+  function docBytes(d) { return Math.floor(d.data.length * 3 / 4); }
+  function mb(n) { return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : C.fmt(Math.round(n / 104857.6) / 10) + ' MB'; }
 
   var storeFull = false;
   function persist() {
@@ -158,19 +182,42 @@
         field('minuten', 'Zeit in Minuten', h('input', { type: 'number', id: 'minuten', min: 1, max: 600, value: D.minutes, oninput: function (e) { D.minutes = Number(e.target.value); persist(); } }))]),
       h('section', { class: 'blatt tafel' }, [h('h2', { text: 'Ablauf' }),
         bindCheck('misch-fragen', D, 'shuffleQ', 'Fragen mischen'),
+        bindCheck('einzeln', D, 'single', 'Eine Frage pro Seite, kein Zurück', renderSettings),
+        D.single ? field('ueberspringen', 'Wie oft Fragen überspringen (ans Ende stellen)', h('input', { type: 'number', id: 'ueberspringen', min: 0, max: 99, step: 1, value: D.skipZahl, oninput: function (e) { D.skipZahl = Number(e.target.value); persist(); } })) : null,
         bindCheck('misch-optionen', D, 'shuffleO', 'Antwortmöglichkeiten mischen'),
         bindCheck('loesungen', D, 'showSolutions', 'Richtige Lösungen nach der Abgabe zeigen'),
+        bindCheck('nurpunkte', D, 'scoreOnly', 'Nach der Abgabe nur die Punkte zeigen'),
+        h('div', { class: 'feld' }, [h('span', { class: 'etikett', id: 'pdf-stufe-t', text: 'PDF für Schüler' }),
+          h('div', { class: 'schalter', role: 'radiogroup', 'aria-labelledby': 'pdf-stufe-t', id: 'pdf-stufe' }, [
+            ['voll', 'Vollständig: Antworten mit ✓/✗ und Punkten je Frage', 'pdf-voll'],
+            ['ohne', 'Ohne Bewertung: nur die eigenen Antworten', 'pdf-ohne'],
+            ['quittung', 'Nur Abgabebestätigung: Gesamtpunkte, keine Antworten', 'pdf-quittung']].map(function (o) {
+            return h('label', { class: 'haken' }, [h('input', { type: 'radio', name: 'pdf-stufe', id: o[2], checked: D.pdfMode === o[0], onchange: function () { D.pdfMode = o[0]; persist(); } }), h('span', { text: o[1] })]);
+          }))]),
         bindCheck('pruef-an', D, 'pruefAn', 'Prüfknopf bei jeder Frage anbieten', renderSettings),
         D.pruefAn ? h('div', { class: 'schalter', role: 'radiogroup', 'aria-label': 'Wie oft geprüft werden darf' }, [['gesamt', 'Anzahl gilt für alle Fragen zusammen', 'pruef-art-gesamt'], ['frage', 'Anzahl gilt für jede Frage', 'pruef-art-frage']].map(function (o) {
           return h('label', { class: 'haken' }, [h('input', { type: 'radio', name: 'pruef-art', id: o[2], checked: D.pruefArt === o[0], onchange: function () { D.pruefArt = o[0]; persist(); } }), h('span', { text: o[1] })]);
         })) : null,
         D.pruefAn ? field('pruef-anzahl', 'Anzahl der Prüfungen', h('input', { type: 'number', id: 'pruef-anzahl', min: 1, max: 99, step: 1, value: D.pruefZahl, oninput: function (e) { D.pruefZahl = Number(e.target.value); persist(); } })) : null,
+        bindCheck('aufloesen', D, 'reveal', 'Auflösen-Knopf bei jeder Frage anbieten'),
+        bindCheck('neustart', D, 'selfRestart', 'Neustart ohne Lehrer-PIN erlauben'),
         bindCheck('fenster', D, 'logBlur', 'Auffälliges Verhalten mit Uhrzeit protokollieren'),
         bindCheck('vollbild', D, 'fullscreen', 'Test im Vollbild erzwingen'),
+        bindCheck('nur-chrome', D, 'browserCheck', 'Nur in Chrome oder Edge starten'),
         bindCheck('sperre', D, 'lock', 'Kopieren, Einfügen und Rechtsklick sperren'),
         h('p', { class: 'hinweis', text: 'Protokolliert wird, was im Testfenster passiert. Welche Seiten oder Programme außerhalb offen sind, kann ein Browser nicht sehen.' }),
         field('startcode', 'Startcode (optional)', bindText('startcode', D, 'startCode', { autocomplete: 'off' }), 'Ohne diesen Code sehen Schüler die Fragen nicht. Du sagst ihn zu Beginn an.'),
         field('pin', 'Lehrer-PIN', bindText('pin', D, 'pin', { autocomplete: 'off' }), 'Gibt einen Computer für die nächste Person frei.')]),
+      h('section', { class: 'blatt tafel', id: 'unterlagen' }, [h('h2', { text: 'Unterlagen (PDF)' }),
+        h('p', { class: 'hinweis', text: 'Schüler können diese PDFs während des Tests neben den Fragen öffnen, mit Suche und Inhaltsverzeichnis.' }),
+        DOCS.length ? h('ul', { class: 'unterlagen-liste' }, DOCS.map(function (d, i) {
+          return h('li', { class: 'zeile' }, [
+            h('input', { type: 'text', value: d.name, 'aria-label': 'Name der Unterlage', maxlength: 60, oninput: function (e) { d.name = e.target.value; saveDocs(); } }),
+            h('span', { class: 'hinweis', text: mb(docBytes(d)) }),
+            h('button', { class: 'btn klein still', type: 'button', text: 'Entfernen', onclick: function () { DOCS.splice(i, 1); saveDocs(); renderSettings(); } })]);
+        })) : null,
+        h('button', { class: 'btn klein', type: 'button', id: 'knopf-pdf-dazu', text: 'PDF hinzufügen', onclick: function () { pdfInput.click(); } }),
+        DOCS.length ? h('p', { class: 'hinweis', text: 'Die Schüler-Datei wird dadurch etwa ' + mb(DOCS.reduce(function (s, d) { return s + d.data.length; }, 0) + 1450000) + ' größer.' }) : null]),
       h('section', { class: 'blatt tafel' }, [h('h2', { text: 'Bewertung' }),
         bindCheck('noten', g, 'on', 'Note nach Notenschlüssel anzeigen', renderSettings),
         g.on ? h('p', { class: 'hinweis', text: 'Grenzen in Prozent der Gesamtpunkte, darunter Note 5.' }) : null,
@@ -255,6 +302,56 @@
           h('button', { class: 'btn klein rot', type: 'button', id: p + '-bildweg', text: 'Bild entfernen', onclick: function () { delete q.image; persist(); renderQuestions(); } })])])]);
   }
 
+  /* Lösung mit Typ: Auswahlfeld und Hinweis, was als richtig zählt */
+  var TYPEN = [['', 'Text'], ['bin', 'bin'], ['hex', 'hex'], ['dez', 'dez'], ['bytes', 'bytes']];
+  function teile(s) { return String(s || '').split('|').map(function (x) { return x.trim(); }).filter(Boolean); }
+  function artVon(alts) {
+    var a = alts.map(function (x) { var t = C.typed(x); return t ? t.art + ':' + t.breite : ':0'; });
+    if (a.some(function (x) { return x !== a[0]; })) return null;
+    var k = (a[0] || ':0').split(':');
+    return { art: k[0], breite: Number(k[1]) || 0 };
+  }
+  function mitArt(alts, art, breite) {
+    return alts.map(function (x) { var w = C.showSolution(x); return art ? art + (art === 'bin' && breite ? breite : '') + ':' + w : w; });
+  }
+  function typHinweis(alts) {
+    var infos = alts.map(function (x) { return { x: x, i: C.loesungInfo(x) }; }).filter(function (o) { return o.i; });
+    if (!infos.length) return null;
+    var mehr = alts.length > 1, f = infos.filter(function (o) { return o.i.fehler; })[0];
+    if (f) return { klasse: 'fehler', text: (mehr ? '„' + f.x + '“: ' : '') + f.i.fehler };
+    var w = infos.filter(function (o) { return o.i.warnung; })[0];
+    if (w) return { klasse: 'warnung', text: (mehr ? '„' + w.x + '“: ' : '') + w.i.warnung };
+    var g = [];
+    alts.forEach(function (x) { var i = C.loesungInfo(x); (i ? i.gilt : [x]).forEach(function (y) { if (g.indexOf(y) < 0) g.push(y); }); });
+    return { klasse: 'gilt', text: 'Richtig z. B.: ' + g.join(' · ') };
+  }
+  function zeigeHinweis(el, alts) {
+    var r = typHinweis(alts);
+    el.hidden = !r; el.className = 'typ-hinweis' + (r ? ' ' + r.klasse : ''); el.textContent = r ? r.text : '';
+  }
+  /* Auswahlfeld Text/bin/hex/dez/bytes für eine Zelle; lesen() und schreiben() greifen auf den Lösungstext zu */
+  function typWahl(id, lesen, schreiben) {
+    var sel = h('select', { id: id + '-typ', class: 'zelle-typ', 'aria-label': 'Art der Lösung', title: 'Text vergleicht die Schreibweise. bin, hex, dez und bytes vergleichen den Wert.' }),
+      stellen = h('input', { type: 'number', id: id + '-stellen', class: 'zelle-stellen', min: 0, max: 64, step: 1, 'aria-label': 'Mindestens so viele Stellen', title: 'Mindestens so viele Stellen, z. B. 7 für 7 Datenbits. Leer: beliebig.', placeholder: 'min.' }),
+      hinweis = h('div', { id: id + '-hinweis', class: 'typ-hinweis', 'aria-live': 'polite', hidden: true });
+    function sync() {
+      var alts = teile(lesen()), a = artVon(alts);
+      sel.textContent = '';
+      if (!a) sel.append(h('option', { value: '*', text: 'gemischt', selected: true, disabled: true }));
+      TYPEN.forEach(function (t) { sel.append(h('option', { value: t[0], text: t[1], selected: !!a && a.art === t[0] })); });
+      stellen.hidden = !a || a.art !== 'bin';
+      if (document.activeElement !== stellen) stellen.value = a && a.breite ? a.breite : '';
+      zeigeHinweis(hinweis, alts);
+    }
+    function neu() {
+      var alts = teile(lesen()), art = sel.value === '*' ? '' : sel.value, b = Math.max(0, Math.min(64, parseInt(stellen.value, 10) || 0));
+      schreiben(mitArt(alts, art, b).join('|')); sync();
+    }
+    sel.addEventListener('change', neu); stellen.addEventListener('input', neu);
+    sync();
+    return { sync: sync, teile: [h('div', { class: 'zelle-typwahl' }, [sel, stellen]), hinweis] };
+  }
+
   function tableEditor(q) {
     var p = 'q-' + q.id, t = q.table, cols = t.head.length;
     var num = function (id, label, val, max, on) {
@@ -267,13 +364,14 @@
       }))]),
       h('tbody', {}, t.rows.map(function (row, r) {
         return h('tr', {}, row.map(function (cell, c) {
-          var id = p + '-z' + r + '-s' + c;
-          return h('td', { class: cell.fill ? 'leer' : '' }, [
-            h('input', { type: 'text', id: id, value: cell.t, 'aria-label': (cell.fill ? 'Lösung' : 'Vorgabe') + ' Zeile ' + (r + 1) + ', Spalte ' + (c + 1), placeholder: cell.fill ? 'Lösung' : '', oninput: function (e) { cell.t = e.target.value; persist(); } }),
+          var id = p + '-z' + r + '-s' + c, wahl = null;
+          var feld = h('input', { type: 'text', id: id, value: cell.t, 'aria-label': (cell.fill ? 'Lösung' : 'Vorgabe') + ' Zeile ' + (r + 1) + ', Spalte ' + (c + 1), placeholder: cell.fill ? 'Lösung' : '', oninput: function (e) { cell.t = e.target.value; persist(); if (wahl) wahl.sync(); } });
+          if (cell.fill) wahl = typWahl(id, function () { return cell.t; }, function (v) { cell.t = v; feld.value = v; persist(); });
+          return h('td', { class: cell.fill ? 'leer' : '' }, [feld].concat(wahl ? wahl.teile : []).concat([
             h('button', { class: 'zelle-art', type: 'button', id: id + '-art', 'aria-pressed': cell.fill ? 'true' : 'false', title: cell.fill ? 'Schüler füllen diese Zelle aus. Klicken macht sie zur Vorgabe.' : 'Vorgegebene Zelle. Klicken lässt sie von Schülern ausfüllen.', text: cell.fill ? 'ausfüllen' : 'vorgegeben', onclick: function () {
               if (cell.fill) delete cell.fill; else cell.fill = true;
               persist(); renderQuestions(); var b = document.getElementById(id + '-art'); if (b) b.focus();
-            } })]);
+            } })]));
         }));
       }))]);
     return [
@@ -284,7 +382,7 @@
           h('button', { class: 'btn klein', type: 'button', id: p + '-wt', text: 'Erzeugen', onclick: function () {
             var w = truthTable(Number(vars.value)); q.table = w.table; q.choices = w.choices; persist(); renderQuestions();
           } })])])]),
-      h('p', { class: 'hinweis', text: 'Gelbe Zellen füllen Schüler aus. Trag dort die Lösung ein, weitere richtige Lösungen trennst du mit |. Mit dem Knopf unter jeder Zelle wechselst du zwischen vorgegeben und ausfüllen.' }),
+      h('p', { class: 'hinweis', text: 'Gelbe Zellen füllen Schüler aus. Trag dort die Lösung ein, weitere richtige Lösungen trennst du mit |. Darunter wählst du die Art: Text vergleicht die Schreibweise, bin, hex, dez und bytes vergleichen den Wert. Mit dem Knopf unter jeder Zelle wechselst du zwischen vorgegeben und ausfüllen.' }),
       h('div', { class: 'tabelle' }, [grid]),
       field(p + '-auswahl', 'Auswahl für Schüler (optional)', bindText(p + '-auswahl', q, 'choices', { placeholder: 'z. B. 0, 1' }), 'Mit Komma getrennt. Dann wählen Schüler in jeder Zelle aus dieser Liste. Leer lassen für freie Eingabe.'),
       h('div', { class: 'schalter' }, [bindCheck(p + '-gk', q, 'caseSensitive', 'Groß- und Kleinschreibung beachten'), bindCheck(p + '-typo', q, 'typo', 'Einen Tippfehler dulden')])];
@@ -294,10 +392,12 @@
     var p = 'q-' + q.id;
     switch (q.type) {
       case 'text':
-        return [field(p + '-richtig', 'Richtige Antworten, eine pro Zeile', h('textarea', { id: p + '-richtig', rows: 2, value: (q.accepted || []).join('\n'), oninput: function (e) {
-          q.accepted = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist();
-        } })),
-        field(p + '-falsch', 'Falsche Antworten zur Auswahl (optional), eine pro Zeile', h('textarea', { id: p + '-falsch', rows: 2, value: (q.distractors || []).join('\n'), oninput: function (e) {
+        var th = h('div', { id: p + '-richtig-hinweis', class: 'typ-hinweis', 'aria-live': 'polite', hidden: true });
+        zeigeHinweis(th, q.accepted || []);
+        return [field(p + '-richtig', 'Richtige Antworten, eine pro Zeile', h('textarea', { id: p + '-richtig', rows: 3, value: (q.accepted || []).join('\n'), oninput: function (e) {
+          q.accepted = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist(); zeigeHinweis(th, q.accepted);
+        } }), 'Für Zahlen in Binär oder Hex einen Typ davor schreiben: bin:, bin7:, hex:, dez: oder bytes:.'), th,
+        field(p + '-falsch', 'Falsche Antworten zur Auswahl (optional), eine pro Zeile', h('textarea', { id: p + '-falsch', rows: 3, value: (q.distractors || []).join('\n'), oninput: function (e) {
           q.distractors = e.target.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); persist();
         } }), 'Leer lassen für freie Eingabe. Sonst wählen Schüler aus einer Liste, die aus deiner ersten richtigen Antwort und diesen falschen besteht.'),
         h('div', { class: 'schalter' }, [bindCheck(p + '-gk', q, 'caseSensitive', 'Groß- und Kleinschreibung beachten'), bindCheck(p + '-typo', q, 'typo', 'Einen Tippfehler dulden')])];
@@ -349,7 +449,7 @@
                 var removed = D.questions.splice(i, 1)[0]; delete problems[q.id]; persist(); renderQuestions();
                 offerUndo(removed, i);
               } })])]),
-          field(p + '-text', isCloze ? 'Text mit Lücken' : 'Frage', h('textarea', { id: p + '-text', rows: isCloze ? 3 : 2, value: q.prompt, oninput: function (e) { q.prompt = e.target.value; persist(); } }),
+          field(p + '-text', isCloze ? 'Text mit Lücken' : 'Frage', h('textarea', { id: p + '-text', rows: isCloze ? 5 : 3, value: q.prompt, oninput: function (e) { q.prompt = e.target.value; persist(); } }),
             isCloze ? 'Setze die Lösung in geschwungene Klammern: Wien liegt an der {Donau}. Mit | trennst du weitere richtige Lösungen: {Fahrrad|Rad}. Für eine Auswahlliste schreibst du falsche Antworten mit ~ dazu: {Donau|~Inn|~Mur}.' : null)
         ].concat([imageEditor(q)], typeEditor(q), list ? list.map(function (t) { return h('p', { class: 'problem', text: t }); }) : []))]));
     });
@@ -389,6 +489,7 @@
     if (!D.title.trim()) g.push('Gib dem Test einen Titel.');
     if (!(D.minutes >= 1 && D.minutes <= 600)) g.push('Die Zeit muss zwischen 1 und 600 Minuten liegen.');
     if (!String(D.pin || '').trim()) g.push('Lege eine Lehrer-PIN fest.');
+    if (D.single && !(Number.isInteger(D.skipZahl) && D.skipZahl >= 0 && D.skipZahl <= 99)) g.push('Die Anzahl fürs Überspringen muss eine ganze Zahl von 0 bis 99 sein.');
     if (D.pruefAn && !(Number.isInteger(D.pruefZahl) && D.pruefZahl >= 1 && D.pruefZahl <= 99)) g.push('Die Anzahl der Prüfungen muss eine ganze Zahl von 1 bis 99 sein.');
     if (!D.questions.length) g.push('Lege mindestens eine Frage an.');
     if (D.grading.on) {
@@ -416,8 +517,11 @@
         var cells = C.tableGaps(q), ch = C.tableChoices(q);
         if (!cells.length) e.push('Markiere mindestens eine Zelle zum Ausfüllen.');
         if (cells.some(function (g) { return !g.acc.length; })) e.push('Trag in jede gelbe Zelle die Lösung ein.');
-        else if (ch.length && cells.some(function (g) { return !g.acc.some(function (x) { return C.textMatches(x, ch, q); }); })) e.push('Jede Lösung muss in der Auswahl für Schüler vorkommen.');
+        else if (ch.length && cells.some(function (g) { return !g.acc.some(function (x) { return ch.some(function (c) { return C.textMatches(c, [x], q); }); }); })) e.push('Jede Lösung muss in der Auswahl für Schüler vorkommen.');
       }
+      var loes = q.type === 'text' ? (q.accepted || []) : q.type === 'table' ? [].concat.apply([], C.tableGaps(q).map(function (g) { return g.acc; }))
+        : q.type === 'cloze' ? [].concat.apply([], C.gapsOf(q).map(function (x) { return x.gap; })) : [];
+      loes.forEach(function (x) { var i = C.loesungInfo(x); if (i && i.fehler) e.push('Lösung „' + x + '“: ' + i.fehler); });
       if (q.type === 'cloze' && q.prompt.trim() && !C.gapsOf(q).length) e.push('Setze mindestens eine Lücke in {geschwungene Klammern}.');
       if (q.type === 'cloze' && C.gapsOf(q).some(function (x) { return !x.gap.length; })) e.push('Jede Lücke braucht eine richtige Antwort ohne ~.');
       if (e.length) per[q.id] = e;
@@ -451,14 +555,17 @@
       needCode: !!code, pinHash: C.hash(id + ':' + String(D.pin).trim()), preview: !!preview,
       shuffleQ: D.shuffleQ, shuffleO: D.shuffleO, showSolutions: D.showSolutions, logBlur: D.logBlur,
       fullscreen: !preview && !!D.fullscreen, lock: !!D.lock,
+      reveal: !!D.reveal, selfRestart: !!D.selfRestart, single: !!D.single, skips: D.single ? D.skipZahl : 0, scoreOnly: !!D.scoreOnly, browserCheck: !!D.browserCheck, pdfMode: D.pdfMode,
       checks: D.pruefAn ? { mode: D.pruefArt === 'frage' ? 'frage' : 'gesamt', n: D.pruefZahl } : null,
       grading: D.grading.on ? D.grading : null
     };
     var html = decodeTemplate();
+    if (!DOCS.length) html = html.replace(/<!--SMU_PDFJS-->[\s\S]*?<!--\/SMU_PDFJS-->/, '');
+    var docsHtml = DOCS.map(function (d) { return '<script type="text/plain" class="smu-doc" data-name="' + esc(d.name.trim() || 'Unterlage').replace(/"/g, '&quot;') + '">' + d.data + '</' + 'script>'; }).join('\n');
     var jsonMeta = JSON.stringify(meta).replace(/</g, '\\u003c');
     /* Ein einziger Durchlauf: Eingesetzter Text wird nicht noch einmal nach Platzhaltern durchsucht */
-    var fill = { TITLE: esc(meta.title), META: jsonMeta, DATA: C.seal({ questions: questions, secret: secret }, id, code) };
-    html = html.replace(/@@SMU_(TITLE|META|DATA)@@/g, function (m, k) { return fill[k]; });
+    var fill = { TITLE: esc(meta.title), META: jsonMeta, DATA: C.seal({ questions: questions, secret: secret }, id, code), DOCS: docsHtml };
+    html = html.replace(/@@SMU_(TITLE|META|DATA|DOCS)@@/g, function (m, k) { return fill[k]; });
     var parsed = new DOMParser().parseFromString(html, 'text/html');
     var fp = C.fingerprint(['smu-meta', 'smu-data', 'smu-core', 'smu-code'].map(function (i) { return parsed.getElementById(i).textContent; }));
     return { html: html, kontrolle: { art: 'smue-kontrolle', v: 1, id: id, secret: secret, fp: fp, title: meta.title, cls: meta.cls, minutes: meta.minutes, grading: meta.grading,
@@ -507,18 +614,56 @@
     return false;
   }
 
+  /* Ziel für Schüler-Datei und Kontrolldatei: der Ordner des geöffneten Entwurfs (Chrome/Edge), sonst der Download-Ordner.
+     Den Ordner bestätigt man einmal im Ordner-Dialog, der im Ordner des Entwurfs startet; danach merkt sich das Programm ihn. */
+  function zielOrdner() {
+    if (!fsApi() || !window.showDirectoryPicker || !ENTWURF || !ENTWURF.handle) return Promise.resolve(null);
+    var alt = ENTWURF.dir ? permitted(ENTWURF.dir).then(function (ok) { return ok ? ENTWURF.dir : null; }) : Promise.resolve(null);
+    return alt.then(function (dir) {
+      if (dir) return dir;
+      return window.showDirectoryPicker({ mode: 'readwrite', startIn: ENTWURF.handle }).then(function (neu) {
+        ENTWURF.dir = neu; merkeEntwurf(ENTWURF); return neu;
+      });
+    });
+  }
+  function gibtEs(dir, name) { return dir.getFileHandle(name).then(function () { return true; }, function () { return false; }); }
+  /* Nie überschreiben: Eine ersetzte Kontrolldatei macht die Abgaben zur alten Schüler-Datei unprüfbar. Belegt → _2, _3 … für beide Dateien. */
+  function freierName(dir, basis, n) {
+    var b = basis + (n > 1 ? '_' + n : '');
+    return Promise.all([gibtEs(dir, b + '.html'), gibtEs(dir, b + '_Kontrolle.json')]).then(function (x) {
+      return x[0] || x[1] ? freierName(dir, basis, n + 1) : b;
+    });
+  }
+  function inOrdner(dir, name, text) {
+    return dir.getFileHandle(name, { create: true }).then(function (fh) { return writeHandle(fh, text); });
+  }
   function generate() {
     if (!check()) return;
-    var name = 'Smue_' + slug(D.title) + (D.cls.trim() ? '_' + slug(D.cls) : '') + '.html';
-    var built = buildStudent(false), kname = name.replace(/\.html$/, '_Kontrolle.json');
-    saveFile(name, built.html, 'text/html').then(function (ok) {
-      if (!ok) { toast('Die Schüler-Datei wurde nicht gespeichert.'); return false; }
-      return new Promise(function (res) { setTimeout(res, 500); }).then(function () { return saveFile(kname, JSON.stringify(built.kontrolle), 'application/json'); }).then(function (k) { return k ? 'ok' : 'ohne'; });
+    var basis = 'Smue_' + slug(D.title) + (D.cls.trim() ? '_' + slug(D.cls) : '');
+    var built = buildStudent(false), name = basis + '.html', kname = basis + '_Kontrolle.json', ordner = '';
+    var kText = JSON.stringify(built.kontrolle, null, 2);
+    var download = function () {
+      return saveFile(name, built.html, 'text/html').then(function (ok) {
+        if (!ok) { toast('Die Schüler-Datei wurde nicht gespeichert.'); return false; }
+        return new Promise(function (res) { setTimeout(res, 500); }).then(function () { return saveFile(kname, kText, 'application/json'); }).then(function (k) { return k ? 'ok' : 'ohne'; });
+      });
+    };
+    zielOrdner().then(function (dir) {
+      if (!dir) return download();
+      return freierName(dir, basis, 1).then(function (b) {
+        name = b + '.html'; kname = b + '_Kontrolle.json'; ordner = dir.name;
+        return inOrdner(dir, name, built.html).then(function () {
+          return inOrdner(dir, kname, kText).then(function () { return 'ok'; }, function () { return 'ohne'; });
+        });
+      }).catch(function () { ordner = ''; return download(); });
+    }, function (err) {
+      if (err && err.name === 'AbortError') { toast('Abgebrochen, es wurde nichts gespeichert.'); return false; }
+      return download();
     }).then(function (ok) {
       if (!ok) return;
       var code = String(D.startCode || '').trim();
       dialog('Schüler-Datei gespeichert', [
-        h('p', { text: name }),
+        h('p', { text: (ordner ? 'Ordner „' + ordner + '“: ' : 'Download-Ordner: ') + name }),
         h('div', { class: 'codes' }, [
           h('span', { text: 'Startcode' }), h('b', { text: code || 'keiner' }),
           h('span', { text: 'Lehrer-PIN' }), h('b', { text: String(D.pin).trim() })]),
@@ -552,19 +697,79 @@
       h('button', { class: 'btn still', type: 'button', text: 'Schließen', onclick: closeDialog })]);
   }
 
-  function exportDraft() {
-    saveFile('Smue-Entwurf_' + slug(D.title) + '.json', JSON.stringify(D, null, 2), 'application/json').then(function (ok) {
-      if (ok) toast('Entwurf gespeichert.');
+  /* Entwurfsdatei: In Chrome und Edge merkt sich das Programm die geladene oder gespeicherte Datei (FileSystemFileHandle, in IndexedDB).
+     „Entwurf speichern“ überschreibt sie dann direkt. Ohne Datei oder mit geändertem Titel öffnet sich der Speichern-Dialog,
+     im Ordner der bisherigen Datei. Andere Browser und die eingebettete Version laden weiter über ein Dateifeld und speichern als Download. */
+  var JSON_TYP = [{ description: 'Smü-Entwurf', accept: { 'application/json': ['.json'] } }];
+  var ENTWURF = null; // { handle, title }
+  function fsApi() {
+    var eingebettet = false;
+    try { eingebettet = window.top !== window.self; } catch (e) { eingebettet = true; }
+    return !!(window.showOpenFilePicker && window.showSaveFilePicker && !eingebettet);
+  }
+  function merkeEntwurf(e) {
+    ENTWURF = e;
+    docsDb('readwrite', function (s) { if (e) s.put(e, 'entwurf'); else s.delete('entwurf'); }).catch(function () { /* nur im Speicher */ });
+  }
+  function draftText() {
+    var out = JSON.parse(JSON.stringify(D));
+    if (DOCS.length) out.docs = DOCS;
+    return JSON.stringify(out, null, 2);
+  }
+  function draftName() { return 'Smue-Entwurf_' + slug(D.title) + '.json'; }
+  function writeHandle(handle, text) {
+    return handle.createWritable().then(function (w) { return w.write(text).then(function () { return w.close(); }); });
+  }
+  function permitted(handle) {
+    var o = { mode: 'readwrite' };
+    if (!handle.queryPermission) return Promise.resolve(true);
+    return handle.queryPermission(o).then(function (p) { return p === 'granted' || handle.requestPermission(o).then(function (q) { return q === 'granted'; }); })
+      .catch(function () { return false; });
+  }
+  function saveAs(text) {
+    var opt = { suggestedName: draftName(), types: JSON_TYP };
+    if (ENTWURF && ENTWURF.handle) opt.startIn = ENTWURF.handle; else opt.id = 'smue-entwurf';
+    return window.showSaveFilePicker(opt).then(function (handle) {
+      return writeHandle(handle, text).then(function () { merkeEntwurf({ handle: handle, title: D.title }); return handle.name; });
     });
   }
-  function importDraft(file) {
+  function exportDraft() {
+    var text = draftText();
+    if (!fsApi()) {
+      saveFile(draftName(), text, 'application/json').then(function (ok) { if (ok) toast('Entwurf gespeichert.'); });
+      return;
+    }
+    var e = ENTWURF, gleich = e && e.handle && e.title === D.title;
+    (gleich ? permitted(e.handle).then(function (ok) {
+      if (!ok) return saveAs(text);
+      // Datei verschoben oder gelöscht: dann doch der Dialog
+      return writeHandle(e.handle, text).then(function () { return e.handle.name; }, function () { return saveAs(text); });
+    }) : saveAs(text)).then(function (name) {
+      toast('Entwurf gespeichert: ' + name);
+    }, function (err) {
+      if (err && err.name === 'AbortError') return;
+      toast('Der Entwurf wurde nicht gespeichert.');
+    });
+  }
+  function loadDraft() {
+    if (!fsApi()) { fileInput.click(); return; }
+    var opt = { types: JSON_TYP, excludeAcceptAllOption: false };
+    if (ENTWURF && ENTWURF.handle) opt.startIn = ENTWURF.handle; else opt.id = 'smue-entwurf';
+    window.showOpenFilePicker(opt).then(function (a) {
+      var handle = a[0];
+      return handle.getFile().then(function (f) { importDraft(f, handle); });
+    }, function (err) { if (!err || err.name !== 'AbortError') fileInput.click(); });
+  }
+  function importDraft(file, handle) {
     var rd = new FileReader();
     rd.onload = function () {
       try {
-        var d = cleanDraft(JSON.parse(rd.result));
+        var raw = JSON.parse(rd.result), d = cleanDraft(raw);
         if (!d) throw new Error('form');
+        DOCS = cleanDocs(raw.docs); saveDocs();
         d.sample = false; D = d; problems = {}; persist(); renderSettings(); renderQuestions();
-        toast('Entwurf geladen.');
+        merkeEntwurf(handle ? { handle: handle, title: D.title } : null);
+        toast('Entwurf geladen' + (handle ? ': ' + handle.name : '.'));
       } catch (e) { toast('Diese Datei ist kein Smü-Entwurf.'); }
     };
     rd.readAsText(file);
@@ -573,7 +778,7 @@
     dialog('Neuen Test beginnen?', [h('p', { text: D.sample ? 'Der Beispiel-Test wird geleert.' : 'Der aktuelle Entwurf wird geleert. Speichere ihn vorher, wenn du ihn noch brauchst.' })], [
       h('button', { class: 'btn', type: 'button', text: 'Abbrechen', onclick: closeDialog }),
       h('button', { class: 'btn voll', type: 'button', id: 'wirklich-neu', text: 'Leeren', onclick: function () {
-        D = emptyDraft(); problems = {}; persist(); renderSettings(); renderQuestions(); closeDialog();
+        D = emptyDraft(); DOCS = []; saveDocs(); merkeEntwurf(null); problems = {}; persist(); renderSettings(); renderQuestions(); closeDialog();
         var t = document.getElementById('titel'); if (t) t.focus();
       } })]);
   }
@@ -613,8 +818,11 @@
     rows.forEach(function (r) { var k = r.name.trim().toLowerCase(); if (k) names[k] = (names[k] || 0) + 1; });
     var ok = rows.filter(function (r) { return r.status === 'echt'; }).length;
     box.append(h('p', { class: 'hinweis', id: 'pruef-summe', text: rows.length + (rows.length === 1 ? ' Abgabe' : ' Abgaben') + ', davon ' + ok + ' echt.' }));
+    if (rows.some(function (r) { return r.fragen; })) box.append(h('div', { class: 'zeile' }, [
+      h('button', { class: 'btn klein', type: 'button', id: 'knopf-auswertung', text: 'Einzelauswertung drucken', onclick: drucken }),
+      h('span', { class: 'hinweis', text: 'Alle Abgaben mit jeder Frage, Antwort und Punkten, je Schüler eine Seite. Im Druckdialog auch „Als PDF speichern“.' })]));
     box.append(h('div', { class: 'tabelle' }, [h('table', {}, [
-      h('thead', {}, [h('tr', {}, ['Datei', 'Name', 'Punkte', 'Note', 'Status', 'Protokoll'].map(function (t) { return h('th', { text: t }); }))]),
+      h('thead', {}, [h('tr', {}, ['Datei', 'Name', 'Punkte', 'Note', 'Status', 'Antworten', 'Protokoll'].map(function (t) { return h('th', { text: t }); }))]),
       h('tbody', {}, rows.map(function (r) {
         var notes = r.hinweise.slice();
         if (names[r.name.trim().toLowerCase()] > 1) notes.push('Mehrere Abgaben mit diesem Namen.');
@@ -623,9 +831,41 @@
           h('td', { text: r.earned === null ? '–' : C.fmt(r.earned) + ' von ' + C.fmt(r.max) }),
           h('td', { text: r.note ? String(r.note.nr) : '–' }),
           h('td', {}, [h('b', { class: 'status ' + r.status, text: LABEL[r.status] })].concat(notes.map(function (t) { return h('div', { class: 'hinweis', text: t }); }))),
-          h('td', {}, r.log.length ? [h('details', {}, [h('summary', { text: r.log.length + (r.log.length === 1 ? ' Eintrag' : ' Einträge') }),
+          h('td', {}, r.fragen ? [h('details', { class: 'antworten' }, [h('summary', { text: r.fragen.length + ' Fragen' }), fragenTabelle(r)])] : [h('span', { text: '–' })]),
+          h('td', {}, r.log.length ? [h('details', { class: 'protokoll' }, [h('summary', { text: r.log.length + (r.log.length === 1 ? ' Eintrag' : ' Einträge') }),
             h('ul', {}, r.log.map(function (e) { return h('li', { text: logText(e) }); }))])] : [h('span', { text: 'keine' })])]);
       }))])]));
+  }
+  /* Einzelauswertung aus den Prüfdaten: auch wenn das Schüler-PDF nur eine Abgabebestätigung ist */
+  var MARKE = { full: '✓', partial: '±', wrong: '✗', empty: '✗', revealed: '–' };
+  function fragenTabelle(r) {
+    return h('table', { class: 'einzel' }, [
+      h('thead', {}, [h('tr', {}, ['', 'Frage', 'Antwort', 'Punkte'].map(function (t) { return h('th', { text: t }); }))]),
+      h('tbody', {}, r.fragen.map(function (f, i) {
+        return h('tr', { 'data-status': f.status }, [
+          h('td', { class: 'marke ' + f.status, text: (i + 1) + ' ' + MARKE[f.status] }),
+          h('td', { class: 'umbruch', text: f.prompt }),
+          h('td', { class: 'umbruch' }, [h('div', { text: f.given || 'keine Antwort' }),
+            f.status !== 'full' && f.solution ? h('div', { class: 'loesung', text: 'Richtig: ' + f.solution }) : null,
+            f.status === 'revealed' ? h('div', { class: 'hinweis', text: 'aufgelöst' }) : null]),
+          h('td', { class: 'ziffern', text: C.fmt(f.earned) + ' / ' + C.fmt(f.max) })]);
+      }))]);
+  }
+  function drucken() {
+    var alt = document.getElementById('druck-auswertung'); if (alt) alt.remove();
+    var teile = rows.filter(function (r) { return r.fragen; }).map(function (r) {
+      return h('section', { class: 'druck-schueler' }, [
+        h('h2', { text: r.name + (r.cls ? ' · ' + r.cls : '') }),
+        h('p', { text: (K ? K.title + ' · ' : '') + C.fmt(r.earned) + ' von ' + C.fmt(r.max) + ' Punkten (' + C.fmt(r.pct) + ' %)' + (r.note ? ' · Note ' + r.note.nr : '') + ' · ' + LABEL[r.status] + ' · Datei: ' + r.datei }),
+        r.hinweise.length ? h('p', { class: 'hinweis', text: r.hinweise.join(' ') }) : null,
+        fragenTabelle(r)]);
+    });
+    var box = h('div', { id: 'druck-auswertung' }, teile);
+    document.body.append(box);
+    document.body.classList.add('drucke-auswertung');
+    var fertig = function () { document.body.classList.remove('drucke-auswertung'); box.remove(); window.removeEventListener('afterprint', fertig); };
+    window.addEventListener('afterprint', fertig);
+    window.print();
   }
   function readAll(files) {
     return Promise.all(Array.prototype.map.call(files, function (f) {
@@ -669,9 +909,26 @@
   document.getElementById('knopf-neu').addEventListener('click', startNew);
   document.getElementById('knopf-beispiel-neu').addEventListener('click', startNew);
   var fileInput = document.getElementById('datei-laden');
-  document.getElementById('knopf-laden').addEventListener('click', function () { fileInput.click(); });
+  document.getElementById('knopf-laden').addEventListener('click', loadDraft);
   fileInput.addEventListener('change', function () { if (fileInput.files[0]) importDraft(fileInput.files[0]); fileInput.value = ''; });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDialog(); var v = document.getElementById('vorschau'); if (v) v.remove(); } });
+
+  var pdfInput = h('input', { type: 'file', id: 'datei-unterlage', accept: 'application/pdf,.pdf', multiple: true, hidden: true });
+  document.body.append(pdfInput);
+  pdfInput.addEventListener('change', function () {
+    Array.prototype.forEach.call(pdfInput.files, function (f) {
+      var rd = new FileReader();
+      rd.onload = function () {
+        var data = String(rd.result).replace(/^data:[^,]*,/, '');
+        if (!/^JVBER/.test(data)) { toast(f.name + ' ist keine PDF-Datei.'); return; }
+        DOCS.push({ name: f.name.replace(/\.pdf$/i, '').slice(0, 60), data: data }); saveDocs(); renderSettings();
+      };
+      rd.readAsDataURL(f);
+    });
+    pdfInput.value = '';
+  });
+  docsDb('readonly', function (s) { return s.get('docs'); }).then(function (a) { DOCS = cleanDocs(a); if (DOCS.length) renderSettings(); }, function () {});
+  docsDb('readonly', function (s) { return s.get('entwurf'); }).then(function (e) { if (e && e.handle && typeof e.handle.createWritable === 'function') ENTWURF = e; }, function () {});
 
   renderSettings(); renderAdd(); renderQuestions();
   window.SMU_HILFE.init();

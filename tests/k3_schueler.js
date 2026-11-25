@@ -61,7 +61,9 @@ module.exports = async function () {
     const r = (await s.textContent('.note-hand')).split(' ')[0]; await s.close(); return r;
   });
   await fall('ÄK-U02', 'Neuladen setzt den Timer nicht zurück', 'true', async () => {
-    const s = await start(ctx, { minutes: 10 }); await s.evaluate(() => { window.__uhr(120000); const k = 'smue:' + JSON.parse(document.getElementById('smu-meta').textContent).id; const o = JSON.parse(localStorage[k]); o.endsAt -= 120000; o.startedAt -= 120000; localStorage[k] = JSON.stringify(o); });
+    const s = await start(ctx, { minutes: 10 }); await s.evaluate(() => { window.__uhr(120000); const k = 'smue:' + JSON.parse(document.getElementById('smu-meta').textContent).id; const o = JSON.parse(localStorage[k]); o.endsAt -= 120000; o.startedAt -= 120000; localStorage[k] = JSON.stringify(o);
+      Storage.prototype.setItem = function () {};   // das Speichern beim Neuladen (Protokoll) darf die vorgestellte Zeit nicht überschreiben
+    });
     await warte(100); await s.reload(); await s.waitForSelector('.uhr'); const t = await uhr(s).textContent(); await s.close(); return String(/^0[78]:/.test(t));
   });
 
